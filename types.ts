@@ -1,0 +1,143 @@
+/**
+ * Type definitions for pi-recurse extension
+ */
+
+import type { Static } from "@sinclair/typebox";
+
+// ============================================================================
+// Guardrail Configuration
+// ============================================================================
+
+export interface GuardrailConfig {
+  /** Maximum recursion depth (0 = root) */
+  maxDepth: number;
+  /** Maximum total recurse invocations across entire tree */
+  maxCalls?: number;
+  /** Maximum wall-clock seconds for entire recursive tree */
+  timeout?: number;
+  /** Maximum dollar spend for entire tree (e.g., 0.50) */
+  budget?: number;
+  /** Disable recurse tool when depth exceeds this threshold */
+  disableToolAtDepth?: number;
+}
+
+// ============================================================================
+// Recurse Tool Parameters
+// ============================================================================
+
+export interface RecurseSingleParams {
+  /** The task/prompt to send to the subagent */
+  prompt: string;
+  /** Optional context data to pipe to subagent */
+  context?: string;
+  /** Use session fork to carry conversation history */
+  fork?: boolean;
+}
+
+export interface RecurseParallelParams {
+  /** Multiple tasks to run in parallel */
+  tasks: Array<{
+    /** Unique id for this task */
+    id: string;
+    /** Prompt for this subagent */
+    prompt: string;
+    /** Optional context for this specific task */
+    context?: string;
+  }>;
+  /** Maximum concurrent subagents (default: 4) */
+  concurrency?: number;
+  /** Timeout per task in seconds */
+  timeoutPerTask?: number;
+}
+
+export interface RecurseChainParams {
+  /** Sequential tasks where each receives output from previous */
+  chain: Array<{
+    id: string;
+    prompt: string;
+    /** Template placeholder {previous} will be replaced with prior output */
+  }>;
+}
+
+export type RecurseParams = 
+  | ({ mode: "single" } & RecurseSingleParams)
+  | ({ mode: "parallel" } & RecurseParallelParams)
+  | ({ mode: "chain" } & RecurseChainParams);
+
+// ============================================================================
+// Subagent Result Types
+// ============================================================================
+
+export interface SubagentUsage {
+  input: number;
+  output: number;
+  cacheRead?: number;
+  cacheWrite?: number;
+  cost?: number;
+  turns?: number;
+}
+
+export interface SubagentResult {
+  /** Task id (for parallel/chain modes) */
+  id: string;
+  /** Exit status */
+  success: boolean;
+  /** Subagent response text */
+  output: string;
+  /** Any error message */
+  error?: string;
+  /** Usage statistics (if available in JSON mode) */
+  usage?: SubagentUsage;
+  /** Time taken in milliseconds */
+  durationMs: number;
+}
+
+export interface RecurseResult {
+  /** Results from all subagents */
+  results: SubagentResult[];
+  /** Aggregated statistics */
+  stats: {
+    total: number;
+    succeeded: number;
+    failed: number;
+    totalDurationMs: number;
+    totalCost?: number;
+  };
+  /** Current recursion depth */
+  depth: number;
+}
+
+// ============================================================================
+// Extension State
+// ============================================================================
+
+export interface RecurseState {
+  /** Current depth (0 = root agent) */
+  depth: number;
+  /** Call count tracker for this session */
+  callCount: number;
+  /** Trace ID linking all recursive sessions */
+  traceId: string;
+  /** Epoch timestamp when root call started */
+  startTime: number;
+  /** Accumulated cost tracking */
+  accumulatedCost: number;
+}
+
+// ============================================================================
+// Environment Variable Types
+// ============================================================================
+
+export interface RecurseEnvironment {
+  RLM_DEPTH: string;
+  RLM_MAX_DEPTH: string;
+  RLM_CALL_COUNT: string;
+  RLM_MAX_CALLS?: string;
+  RLM_TIMEOUT?: string;
+  RLM_START_TIME?: string;
+  RLM_BUDGET?: string;
+  RLM_COST_FILE?: string;
+  RLM_TRACE_ID?: string;
+  RLM_CHILD_MODEL?: string;
+  RLM_CHILD_PROVIDER?: string;
+}

@@ -1,0 +1,62 @@
+{
+  "name": "pi-recurse",
+  "version": "0.1.0",
+  "description": "Recursive agent extension for Pi — spawn subagents programmatically with depth guardrails",
+  "type": "module",
+  "author": "Tom X Nguyen",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/monotykamary/pi-recurse.git"
+  },
+  "homepage": "https://github.com/monotykamary/pi-recurse#readme",
+  "bugs": {
+    "url": "https://github.com/monotykamary/pi-recurse/issues"
+  },
+  "keywords": [
+    "pi-package",
+    "pi",
+    "pi-coding-agent",
+    "extension",
+    "recursion",
+    "subagent",
+    "parallel",
+    "divide-and-conquer"
+  ],
+  "files": [
+    "*.ts",
+    "*.js",
+    "*.d.ts",
+    "lib/**",
+    "tests/**",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc",
+    "release": "standard-version",
+    "release:dry-run": "standard-version --dry-run"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3",
+    "standard-version": "^9.5.0",
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.8"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-coding-agent": "^0.x",
+    "@mariozechner/pi-tui": "^0.x",
+    "@sinclair/typebox": "^0.x"
+  },
+  "pi": {
+    "extensions": [
+      "./index.ts"
+    ],
+    "skills": [
+      "./skills"
+    ]
+  }
+}
