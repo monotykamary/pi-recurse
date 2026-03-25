@@ -39,6 +39,7 @@ import {
   DEFAULTS,
 } from "./lib.js";
 import { renderParallelStatus, renderSubagentStatus, formatDuration, formatTokens } from "./formatters.js";
+import { formatAgentLabel } from "./names.js";
 
 export default function piRecurseExtension(pi: ExtensionAPI) {
   // ============================================================================
@@ -186,6 +187,7 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
           }
           
           let currentData: { output: string; progress?: SubagentProgress } = { output: "", progress: { status: "running", recentOutput: [], recentTools: [], toolCount: 0, tokens: 0, durationMs: 0 } };
+          const displayName = formatAgentLabel("subagent", true);
           
           const result = await spawnSubagent({
             prompt: params.prompt,
@@ -193,7 +195,7 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
             fork: params.fork,
             onUpdate: onUpdate ? (data) => {
               currentData = data as { output: string; progress?: SubagentProgress };
-              const lines = renderSubagentStatus("subagent", currentData);
+              const lines = renderSubagentStatus("subagent", currentData, 100, true);
               onUpdate({
                 content: [{ type: "text", text: lines.join("\n") }],
                 details: { progress: data.progress },
@@ -279,14 +281,15 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
             const prompt = step.prompt.replace(/\{previous\}/g, previousOutput);
             
             let stepData: { output: string; progress?: SubagentProgress } = { output: "", progress: { status: "running", recentOutput: [], recentTools: [], toolCount: 0, tokens: 0, durationMs: 0 } };
+            const stepLabel = formatAgentLabel(step.id, true);
             
             const result = await spawnSubagent({
               prompt,
               onUpdate: onUpdate ? (data) => {
                 stepData = data as { output: string; progress?: SubagentProgress };
-                const lines = renderSubagentStatus(step.id, stepData);
+                const lines = renderSubagentStatus(step.id, stepData, 100, true);
                 // Show step in context of chain
-                const header = `Step ${results.length + 1}/${params.chain!.length}: ${step.id}`;
+                const header = `Step ${results.length + 1}/${params.chain!.length}: ${stepLabel}`;
                 onUpdate({
                   content: [{ type: "text", text: `${header}\n${lines.join("\n")}` }],
                   details: { 

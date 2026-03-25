@@ -40,6 +40,8 @@ export function formatUsage(usage?: { input?: number; output?: number; cacheRead
   return parts.join(" · ") || "";
 }
 
+import { formatAgentLabel } from "./names.js";
+
 /**
  * Truncate text to max length with ellipsis
  * Uses Intl.Segmenter for proper Unicode handling
@@ -62,14 +64,14 @@ export function truncLine(text: string, maxWidth: number): string {
 }
 
 /**
- * Get status icon like pi-subagents
+ * Get status icon - uses distinct Unicode symbols instead of confusing "..."
  */
 export function getStatusIcon(status: "running" | "completed" | "failed" | undefined): string {
   switch (status) {
-    case "running": return "...";
-    case "completed": return "ok";
-    case "failed": return "X";
-    default: return "○";
+    case "running": return "▶";  // Play icon - clearly indicates active
+    case "completed": return "✓";  // Checkmark
+    case "failed": return "✗";  // X mark
+    default: return "○";  // Circle for pending/unknown
   }
 }
 
@@ -105,15 +107,19 @@ export function formatProgressLine(data: ProgressData): string {
 export function renderSubagentStatus(
   id: string,
   data: { output: string; progress?: ProgressData },
-  maxWidth: number = 100
+  maxWidth: number = 100,
+  useHumanizedName: boolean = true
 ): string[] {
   const lines: string[] = [];
   const p = data.progress;
   
-  // Status line: "... id | 5 tools, 12.3k tok, 2.4s"
+  // Use humanized name for display
+  const displayName = formatAgentLabel(id, useHumanizedName);
+  
+  // Status line: "▶ swift-fox (package.json) | 5 tools, 12.3k tok, 2.4s"
   const icon = getStatusIcon(p?.status);
   const metrics = p ? formatProgressLine(p) : "";
-  const header = metrics ? `${icon} ${id} | ${metrics}` : `${icon} ${id}`;
+  const header = metrics ? `${icon} ${displayName} | ${metrics}` : `${icon} ${displayName}`;
   lines.push(truncLine(header, maxWidth));
   
   if (p?.status === "running") {
@@ -156,12 +162,13 @@ export function renderSubagentStatus(
  */
 export function renderParallelStatus(
   taskProgress: Map<string, { output: string; progress?: ProgressData }>,
-  maxWidth: number = 100
+  maxWidth: number = 100,
+  useHumanizedNames: boolean = true
 ): string {
   const allLines: string[] = [];
   
   for (const [id, data] of taskProgress) {
-    const taskLines = renderSubagentStatus(id, data, maxWidth);
+    const taskLines = renderSubagentStatus(id, data, maxWidth, useHumanizedNames);
     allLines.push(...taskLines);
     allLines.push(""); // Blank line between tasks
   }
