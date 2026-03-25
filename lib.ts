@@ -532,8 +532,21 @@ VIOLATING THESE RULES WILL CAUSE YOUR OUTPUT TO BE REJECTED.
       
       const durationMs = Date.now() - startTime;
       result.durationMs = durationMs;
-      result.success = (code === 0) && !timedOut && !result.error;
-      result.progress!.status = result.success ? "completed" : "failed";
+      
+      // Check if this was an output stabilization kill with actual output (pi-mono #2584 workaround)
+      // In this case, the subagent completed its work but the process didn't exit cleanly
+      const wasOutputStabilizationKill = result.error?.includes("output stabilized");
+      const hasOutput = result.output.trim().length > 0;
+      
+      if (wasOutputStabilizationKill && hasOutput) {
+        // Count as success - the subagent produced output before we killed the hung process
+        result.success = true;
+        result.error = undefined; // Clear the error since we have valid output
+        result.progress!.status = "completed";
+      } else {
+        result.success = (code === 0) && !timedOut && !result.error;
+        result.progress!.status = result.success ? "completed" : "failed";
+      }
       
       // Check for prompt too long error in stderr
       if (stderr) {
