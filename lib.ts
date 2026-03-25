@@ -216,13 +216,16 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
     const oneShotInstruction = `
 ## ONE-SHOT MODE - MANDATORY
 
-You are running in NON-INTERACTIVE mode. You must:
-1. Complete your task in ONE response
+You are running in NON-INTERACTIVE mode with MAX 15 turns. You MUST:
+1. Complete your task in ONE response cycle (analyze and output immediately)
 2. NEVER ask the user for clarification or additional input
 3. If you need file contents, READ them yourself using the read tool
 4. If information is missing, make reasonable assumptions and proceed
 5. Do NOT output phrases like "Once you provide..." or "I'll analyze when..."
-6. Output your complete analysis immediately then STOP
+6. After outputting your analysis, IMMEDIATELY call: bash({ command: "exit 0" })
+7. You have a hard limit of 15 tool calls - after that you will be terminated
+
+VIOLATING THESE RULES WILL CAUSE YOUR OUTPUT TO BE REJECTED.
 `;
     
     // Write one-shot instruction to temp file and append
@@ -305,6 +308,25 @@ You are running in NON-INTERACTIVE mode. You must:
     let pendingTimer: ReturnType<typeof setTimeout> | null = null;
     let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
     const UPDATE_THROTTLE_MS = 50;
+    
+    // Track output stabilization to detect "hung but done" subagents (workaround for pi-mono #2584)
+    let lastOutputTime = Date.now();
+    let outputStabilizeTimer: ReturnType<typeof setTimeout> | null = null;
+    const OUTPUT_STABILIZE_MS = 10000; // 10 seconds of no output = assume done
+    
+    const checkOutputStabilized = () => {
+      if (processClosed) return;
+      const timeSinceOutput = Date.now() - lastOutputTime;
+      if (timeSinceOutput >= OUTPUT_STABILIZE_MS) {
+        // Output has stabilized - assume subagent is done but hung
+        // This is a workaround for pi-mono #2584 where extensions keep process alive
+        result.error = `Subagent output stabilized but process did not exit (pi-mono #2584 workaround). Terminating after ${timeSinceOutput}ms of no output.`;
+        child.kill("SIGTERM");
+      } else {
+        // Schedule next check
+        outputStabilizeTimer = setTimeout(checkOutputStabilized, OUTPUT_STABILIZE_MS - timeSinceOutput);
+      }
+    };
     
     const scheduleUpdate = () => {
       if (!onUpdate || processClosed) return;
@@ -461,6 +483,12 @@ You are running in NON-INTERACTIVE mode. You must:
     
     // Stream stdout (JSONL events)
     child.stdout?.on("data", (data: Buffer) => {
+      lastOutputTime = Date.now(); // Reset output stabilization timer
+      if (outputStabilizeTimer) {
+        clearTimeout(outputStabilizeTimer);
+      }
+      outputStabilizeTimer = setTimeout(checkOutputStabilized, OUTPUT_STABILIZE_MS);
+      
       buf += data.toString();
       const lines = buf.split("\n");
       buf = lines.pop() || "";
@@ -482,6 +510,10 @@ You are running in NON-INTERACTIVE mode. You must:
       if (heartbeatTimer) {
         clearInterval(heartbeatTimer);
         heartbeatTimer = null;
+      }
+      if (outputStabilizeTimer) {
+        clearTimeout(outputStabilizeTimer);
+        outputStabilizeTimer = null;
       }
       
       // Clean up temp files
