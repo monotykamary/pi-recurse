@@ -226,7 +226,10 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       args.push("--provider", env.RLM_CHILD_PROVIDER);
     }
     
-    const child = spawn("pi", args, {
+    // Resolve pi command properly (like pi-subagents)
+    const spawnCommand = getPiSpawnCommand(args);
+    
+    const child = spawn(spawnCommand.command, spawnCommand.args, {
       env,
       stdio: ["pipe", "pipe", "pipe"],
     });
@@ -617,4 +620,45 @@ export function checkBudgetGuard(budget?: number): { allowed: boolean; remaining
     allowed: remaining > 0,
     remaining,
   };
+}
+
+// ============================================================================
+// Pi Spawn Helper
+// ============================================================================
+
+interface PiSpawnCommand {
+  command: string;
+  args: string[];
+}
+
+/**
+ * Resolve the pi command properly.
+ * On Windows: uses process.execPath with the pi CLI script
+ * On other platforms: uses "pi" directly
+ */
+function getPiSpawnCommand(args: string[]): PiSpawnCommand {
+  // On Windows, we need to spawn node with the pi CLI script
+  if (process.platform === "win32") {
+    try {
+      // Try to find pi CLI via require
+      const piPkg = require.resolve("@mariozechner/pi-coding-agent/package.json");
+      const piRoot = path.dirname(piPkg);
+      const pkg = JSON.parse(fs.readFileSync(piPkg, "utf-8"));
+      const binField = pkg.bin;
+      const binPath = typeof binField === "string" 
+        ? binField 
+        : binField?.pi ?? Object.values(binField ?? {})[0];
+      if (binPath) {
+        const cliPath = path.resolve(piRoot, binPath);
+        if (fs.existsSync(cliPath)) {
+          return { command: process.execPath, args: [cliPath, ...args] };
+        }
+      }
+    } catch {
+      // Fall through to default
+    }
+  }
+  
+  // Default: use pi from PATH
+  return { command: "pi", args };
 }
