@@ -274,19 +274,19 @@ export async function runParallel<T, R>(
   fn: (item: T) => Promise<R>,
   concurrency: number
 ): Promise<R[]> {
-  const results: R[] = [];
-  const executing: Promise<void>[] = [];
+  const results: R[] = new Array(items.length);
+  const executing = new Set<Promise<void>>();
   
   for (const [index, item] of items.entries()) {
     const promise = fn(item).then((result) => {
       results[index] = result;
+      executing.delete(promise); // Self-remove when done
     });
     
-    executing.push(promise);
+    executing.add(promise);
     
-    if (executing.length >= concurrency) {
+    if (executing.size >= concurrency) {
       await Promise.race(executing);
-      executing.splice(executing.findIndex(p => p === promise), 1);
     }
   }
   
