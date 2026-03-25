@@ -38,7 +38,14 @@ import {
   saveAccumulatedCost,
   DEFAULTS,
 } from "./lib.js";
-import { renderParallelStatus, renderSubagentStatus, formatDuration, formatTokens } from "./formatters.js";
+import { 
+  renderParallelStatus, 
+  renderSubagentStatus, 
+  formatDuration, 
+  formatTokens,
+  renderRecurseTree,
+  buildRecurseTree,
+} from "./formatters.js";
 import { formatAgentLabel } from "./names.js";
 
 export default function piRecurseExtension(pi: ExtensionAPI) {
@@ -351,6 +358,7 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
       }
       
       const totalDuration = Date.now() - startTime;
+      const invocationId = Math.random().toString(36).substring(2, 10);
       
       const result: RecurseResult = {
         results,
@@ -362,6 +370,8 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
           totalCost,
         },
         depth: currentDepth,
+        mode: params.mode,
+        invocationId,
       };
       
       // Format output
@@ -418,20 +428,37 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
         return new Text(theme.fg("dim", "No result data"), 0, 0);
       }
       
-      const { stats, depth } = data;
+      const { stats, depth, mode } = data;
       const icon = stats.failed === 0 ? theme.fg("success", "✓") : theme.fg("warning", "⚠");
+      const hasChildren = data.results.some(r => r.children);
       
-      let text = `${icon} ${stats.succeeded}/${stats.total} at depth ${depth}`;
+      let text = `${icon} ${stats.succeeded}/${stats.total} at depth ${depth}${mode ? ` · ${mode}` : ""}`;
       
       if (stats.totalCost && stats.totalCost > 0) {
         text += theme.fg("dim", ` · $${stats.totalCost.toFixed(4)}`);
       }
       
+      if (hasChildren) {
+        text += theme.fg("accent", " [has children]");
+      }
+      
       if (expanded) {
-        text += "\n";
-        for (const r of data.results) {
-          const status = r.success ? theme.fg("success", "✓") : theme.fg("error", "✗");
-          text += `  ${status} ${r.id}\n`;
+        if (hasChildren && mode) {
+          // Render tree view
+          const tree = buildRecurseTree(data, mode);
+          const treeLines = renderRecurseTree(tree, 100);
+          text += "\n" + treeLines.join("\n");
+        } else {
+          // Simple flat view
+          text += "\n";
+          for (const r of data.results) {
+            const status = r.success ? theme.fg("success", "✓") : theme.fg("error", "✗");
+            text += `  ${status} ${r.id}`;
+            if (r.children) {
+              text += theme.fg("accent", ` → ${r.children.stats.total} children`);
+            }
+            text += "\n";
+          }
         }
       }
       

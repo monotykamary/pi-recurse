@@ -41,6 +41,7 @@ export function formatUsage(usage?: { input?: number; output?: number; cacheRead
 }
 
 import { formatAgentLabel } from "./names.js";
+import type { RecurseResult, RecurseTreeNode, SubagentResult } from "./types.js";
 
 /**
  * Truncate text to max length with ellipsis
@@ -73,6 +74,123 @@ export function getStatusIcon(status: "running" | "completed" | "failed" | undef
     case "failed": return "✗";  // X mark
     default: return "○";  // Circle for pending/unknown
   }
+}
+
+/**
+ * Build a tree structure from a RecurseResult for visualization
+ */
+export function buildRecurseTree(result: RecurseResult, mode: "single" | "parallel" | "chain", parentId?: string): RecurseTreeNode {
+  const invocationId = result.invocationId || Math.random().toString(36).substring(2, 8);
+  
+  const node: RecurseTreeNode = {
+    id: invocationId,
+    mode,
+    depth: result.depth,
+    status: result.stats.failed === 0 ? "completed" : (result.stats.failed < result.stats.total ? "running" : "failed"),
+    stats: result.stats,
+    children: [],
+    parentId,
+  };
+  
+  // Build child nodes from subagent results that have their own recurse calls
+  for (const subagent of result.results) {
+    if (subagent.children) {
+      const childNode = buildRecurseTree(subagent.children, subagent.children.mode || "single", invocationId);
+      node.children.push(childNode);
+    }
+  }
+  
+  return node;
+}
+
+/**
+ * Render a recurse tree with ASCII/Unicode tree drawing characters
+ */
+export function renderRecurseTree(
+  node: RecurseTreeNode,
+  maxWidth: number = 100,
+  prefix: string = "",
+  isLast: boolean = true,
+  isRoot: boolean = true
+): string[] {
+  const lines: string[] = [];
+  
+  // Build the status line
+  const icon = getStatusIcon(node.status);
+  const modeLabel = node.mode;
+  const stats = `${node.stats.succeeded}/${node.stats.total}`;
+  const cost = node.stats.totalCost ? ` · $${node.stats.totalCost.toFixed(4)}` : "";
+  const duration = formatDuration(node.stats.totalDurationMs);
+  
+  // Tree drawing characters
+  const branch = isRoot ? "" : (isLast ? "└─ " : "├─ ");
+  const indent = isRoot ? "" : prefix;
+  
+  const line = `${indent}${branch}${icon} ${modeLabel} [${stats}]${cost} · ${duration} (depth ${node.depth})`;
+  lines.push(truncLine(line, maxWidth));
+  
+  // Render children
+  if (node.children.length > 0) {
+    const childPrefix = isRoot ? "" : prefix + (isLast ? "   " : "│  ");
+    
+    for (let i = 0; i < node.children.length; i++) {
+      const child = node.children[i];
+      const isLastChild = i === node.children.length - 1;
+      const childLines = renderRecurseTree(child, maxWidth, childPrefix, isLastChild, false);
+      lines.push(...childLines);
+    }
+  }
+  
+  return lines;
+}
+
+/**
+ * Format a flat list of recurse results into a forest (multiple trees)
+ */
+export function renderRecurseForest(
+  results: RecurseResult[],
+  modes: ("single" | "parallel" | "chain")[],
+  maxWidth: number = 100
+): string {
+  const allLines: string[] = [];
+  
+  for (let i = 0; i < results.length; i++) {
+    const tree = buildRecurseTree(results[i], modes[i]);
+    const lines = renderRecurseTree(tree, maxWidth);
+    allLines.push(...lines);
+    
+    // Add separator between trees
+    if (i < results.length - 1) {
+      allLines.push("");
+    }
+  }
+  
+  return allLines.join("\n");
+}
+
+/**
+ * Count total nodes in a recurse tree (for stats)
+ */
+export function countTreeNodes(node: RecurseTreeNode): number {
+  let count = 1; // This node
+  for (const child of node.children) {
+    count += countTreeNodes(child);
+  }
+  return count;
+}
+
+/**
+ * Find the deepest depth in a recurse tree
+ */
+export function getTreeMaxDepth(node: RecurseTreeNode): number {
+  if (node.children.length === 0) {
+    return node.depth;
+  }
+  let maxChildDepth = node.depth;
+  for (const child of node.children) {
+    maxChildDepth = Math.max(maxChildDepth, getTreeMaxDepth(child));
+  }
+  return maxChildDepth;
 }
 
 /**

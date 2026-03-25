@@ -117,6 +117,25 @@ export interface SubagentResult {
   durationMs: number;
   /** Progress information (available during streaming) */
   progress?: SubagentProgress;
+  /** Nested recurse results if this subagent called recurse */
+  children?: RecurseResult;
+}
+
+/** Tree node for recursive agent visualization */
+export interface RecurseTreeNode {
+  id: string;
+  mode: "single" | "parallel" | "chain";
+  depth: number;
+  status: "running" | "completed" | "failed";
+  stats: {
+    total: number;
+    succeeded: number;
+    failed: number;
+    totalDurationMs: number;
+    totalCost?: number;
+  };
+  children: RecurseTreeNode[];
+  parentId?: string;
 }
 
 export interface RecurseResult {
@@ -132,6 +151,12 @@ export interface RecurseResult {
   };
   /** Current recursion depth */
   depth: number;
+  /** Mode used for this recurse call */
+  mode?: "single" | "parallel" | "chain";
+  /** Parent recurse result (for tree traversal) */
+  parent?: RecurseResult;
+  /** Unique ID for this recurse invocation */
+  invocationId?: string;
 }
 
 // ============================================================================
