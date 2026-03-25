@@ -245,6 +245,26 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
                 } : undefined,
               });
               
+              // IMPORTANT: Update with final result so status shows completed/failed
+              if (onUpdate) {
+                taskProgress.set(task.id, { 
+                  output: result.output, 
+                  progress: { 
+                    status: result.success ? "completed" : "failed",
+                    recentOutput: result.progress?.recentOutput || [],
+                    recentTools: result.progress?.recentTools || [],
+                    toolCount: result.progress?.toolCount || 0,
+                    tokens: (result.usage?.input || 0) + (result.usage?.output || 0),
+                    durationMs: result.durationMs,
+                  }
+                });
+                const statusText = renderParallelStatus(taskProgress);
+                onUpdate({
+                  content: [{ type: "text", text: statusText }],
+                  details: { taskProgress: Object.fromEntries(taskProgress) },
+                });
+              }
+              
               return result;
             },
             concurrency
