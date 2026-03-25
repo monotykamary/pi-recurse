@@ -229,10 +229,30 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
     // Resolve pi command properly (like pi-subagents)
     const spawnCommand = getPiSpawnCommand(args);
     
+    // Handle context: if present and small, append to prompt; if large, write to temp file
+    let contextFile: string | undefined;
+    const MAX_PROMPT_CHARS = 100_000; // Approximate safe limit for -p arg
+    
+    if (context) {
+      if (context.length > MAX_PROMPT_CHARS) {
+        // Write large context to temp file and reference it in prompt
+        const tmpDir = os.tmpdir();
+        contextFile = path.join(tmpDir, `rlm_ctx_${id}.txt`);
+        fs.writeFileSync(contextFile, context, { mode: 0o600 });
+        // Modify prompt to reference the file
+        const modifiedPrompt = `${options.prompt}\n\n[Context available at: ${contextFile}]`;
+        // Replace the last arg (original prompt) with modified
+        spawnCommand.args[spawnCommand.args.length - 1] = modifiedPrompt;
+      } else {
+        // Small context - append directly to prompt
+        const modifiedPrompt = `${options.prompt}\n\n${context}`;
+        spawnCommand.args[spawnCommand.args.length - 1] = modifiedPrompt;
+      }
+    }
+    
     const child = spawn(spawnCommand.command, spawnCommand.args, {
       env,
-      stdio: ["pipe", "pipe", "pipe"],
-      // Increase buffer size to handle large outputs without pausing
+      stdio: ["ignore", "pipe", "pipe"], // Ignore stdin like pi-messenger
       maxBuffer: 10 * 1024 * 1024, // 10MB
     });
     
@@ -442,6 +462,15 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
         heartbeatTimer = null;
       }
       
+      // Clean up temp context file if created
+      if (contextFile) {
+        try {
+          fs.unlinkSync(contextFile);
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
+      
       // Process remaining buffer
       if (buf.trim()) processLine(buf);
       
@@ -492,6 +521,14 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
         clearInterval(heartbeatTimer);
         heartbeatTimer = null;
       }
+      // Clean up temp context file if created
+      if (contextFile) {
+        try {
+          fs.unlinkSync(contextFile);
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
       resolve({
         id,
         success: false,
@@ -501,11 +538,8 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       });
     });
     
-    // Send context via stdin if provided
-    if (context) {
-      child.stdin?.write(context);
-    }
-    child.stdin?.end();
+    // Context is now passed via temp file for large payloads, or prompt for small ones
+    // No stdin handling needed - matches pi-messenger approach
   });
 }
 
