@@ -65,6 +65,29 @@ export type RecurseParams =
   | ({ mode: "chain" } & RecurseChainParams);
 
 // ============================================================================
+// Subagent Progress Types (for streaming updates)
+// ============================================================================
+
+export interface SubagentProgress {
+  /** Current status */
+  status: "running" | "completed" | "failed";
+  /** Current tool being executed (if any) */
+  currentTool?: string;
+  /** Arguments for current tool */
+  currentToolArgs?: string;
+  /** Recent output lines (last 50) */
+  recentOutput: string[];
+  /** Recent tools executed */
+  recentTools: Array<{ tool: string; args: string; endMs?: number }>;
+  /** Tool call count */
+  toolCount: number;
+  /** Token count (input + output) */
+  tokens: number;
+  /** Duration in milliseconds */
+  durationMs: number;
+}
+
+// ============================================================================
 // Subagent Result Types
 // ============================================================================
 
@@ -90,6 +113,8 @@ export interface SubagentResult {
   usage?: SubagentUsage;
   /** Time taken in milliseconds */
   durationMs: number;
+  /** Progress information (available during streaming) */
+  progress?: SubagentProgress;
 }
 
 export interface RecurseResult {

@@ -118,6 +118,8 @@ export interface SpawnOptions {
   timeout?: number;
   model?: string;
   provider?: string;
+  /** Callback for streaming progress updates */
+  onUpdate?: (data: { output: string; progress: SubagentProgress }) => void;
 }
 
 export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResult> {
@@ -125,6 +127,7 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
   const id = Math.random().toString(36).substring(2, 8);
   const currentDepth = getCurrentDepth();
   const nextDepth = currentDepth + 1;
+  const onUpdate = options.onUpdate;
   
   // Check guardrails before spawning
   const depthCheck = checkDepthGuard();
@@ -168,18 +171,15 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
     let childSessionFile: string | undefined;
     
     if (sessionDir) {
-      // Ensure session directory exists
       if (!fs.existsSync(sessionDir)) {
         fs.mkdirSync(sessionDir, { recursive: true });
       }
       
-      // Create child session file path
       childSessionFile = path.join(
         sessionDir, 
         `${traceId}_d${nextDepth}_${id}.jsonl`
       );
       
-      // If fork is enabled, copy parent session to child
       if (options.fork) {
         const parentSessionFile = process.env.RLM_SESSION_FILE;
         if (parentSessionFile && fs.existsSync(parentSessionFile)) {
@@ -190,7 +190,6 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       args.push("--session", childSessionFile);
       env.RLM_SESSION_FILE = childSessionFile;
     } else {
-      // No session directory - use fresh session (no history)
       args.push("--no-session");
     }
     
@@ -219,9 +218,66 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       stdio: ["pipe", "pipe", "pipe"],
     });
     
-    let stdout = "";
     let stderr = "";
     let timedOut = false;
+    let processClosed = false;
+    
+    // Result accumulator
+    const result: SubagentResult = {
+      id,
+      success: false,
+      output: "",
+      usage: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, cost: 0, turns: 0 },
+      durationMs: 0,
+      progress: {
+        status: "running",
+        recentOutput: [],
+        recentTools: [],
+        toolCount: 0,
+        tokens: 0,
+        durationMs: 0,
+      },
+    };
+    
+    // Throttled update mechanism (like pi-subagents)
+    let lastUpdateTime = 0;
+    let updatePending = false;
+    let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+    const UPDATE_THROTTLE_MS = 50;
+    
+    const scheduleUpdate = () => {
+      if (!onUpdate || processClosed) return;
+      const now = Date.now();
+      const elapsed = now - lastUpdateTime;
+      
+      if (elapsed >= UPDATE_THROTTLE_MS) {
+        if (pendingTimer) {
+          clearTimeout(pendingTimer);
+          pendingTimer = null;
+        }
+        lastUpdateTime = now;
+        updatePending = false;
+        result.progress!.durationMs = now - startTime;
+        onUpdate({
+          output: result.output,
+          progress: result.progress!,
+        });
+      } else if (!updatePending) {
+        updatePending = true;
+        pendingTimer = setTimeout(() => {
+          pendingTimer = null;
+          if (updatePending && !processClosed) {
+            updatePending = false;
+            lastUpdateTime = Date.now();
+            result.progress!.durationMs = Date.now() - startTime;
+            onUpdate({
+              output: result.output,
+              progress: result.progress!,
+            });
+          }
+        }, UPDATE_THROTTLE_MS - elapsed);
+      }
+    };
     
     // Handle timeout
     const timeoutMs = (options.timeout || DEFAULTS.TIMEOUT) * 1000;
@@ -230,74 +286,163 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       child.kill("SIGTERM");
     }, timeoutMs);
     
-    // Collect stdout
-    child.stdout?.on("data", (data: Buffer) => {
-      stdout += data.toString();
-    });
+    // JSONL streaming parser
+    let buf = "";
+    
+    const processLine = (line: string) => {
+      if (!line.trim()) return;
+      
+      try {
+        const evt = JSON.parse(line) as { 
+          type?: string; 
+          message?: { role?: string; content?: unknown; usage?: SubagentUsage; errorMessage?: string; model?: string };
+          toolName?: string;
+          args?: Record<string, unknown>;
+        };
+        
+        const now = Date.now();
+        result.progress!.durationMs = now - startTime;
+        
+        if (evt.type === "tool_execution_start") {
+          result.progress!.toolCount++;
+          result.progress!.currentTool = evt.toolName;
+          result.progress!.currentToolArgs = extractToolArgsPreview(evt.args || {});
+          // Force immediate update on tool start
+          lastUpdateTime = 0;
+          scheduleUpdate();
+        }
+        
+        if (evt.type === "tool_execution_end") {
+          if (result.progress!.currentTool) {
+            result.progress!.recentTools.unshift({
+              tool: result.progress!.currentTool,
+              args: result.progress!.currentToolArgs || "",
+              endMs: now,
+            });
+            if (result.progress!.recentTools.length > 5) {
+              result.progress!.recentTools.pop();
+            }
+          }
+          result.progress!.currentTool = undefined;
+          result.progress!.currentToolArgs = undefined;
+          scheduleUpdate();
+        }
+        
+        if (evt.type === "message_end" && evt.message) {
+          if (evt.message.role === "assistant") {
+            result.usage!.turns = (result.usage!.turns || 0) + 1;
+            const u = evt.message.usage;
+            if (u) {
+              result.usage!.input += u.input || 0;
+              result.usage!.output += u.output || 0;
+              result.usage!.cacheRead = (result.usage!.cacheRead || 0) + (u.cacheRead || 0);
+              result.usage!.cacheWrite = (result.usage!.cacheWrite || 0) + (u.cacheWrite || 0);
+              result.usage!.cost = (result.usage!.cost || 0) + (u.cost || 0);
+              result.progress!.tokens = result.usage!.input + result.usage!.output;
+            }
+            if (!result.model && evt.message.model) {
+              (result as any).model = evt.message.model;
+            }
+            if (evt.message.errorMessage) {
+              result.error = evt.message.errorMessage;
+            }
+            
+            // Extract text content
+            const text = extractTextFromContent(evt.message.content);
+            if (text) {
+              const lines = text.split("\n").filter(l => l.trim()).slice(-10);
+              result.progress!.recentOutput.push(...lines);
+              if (result.progress!.recentOutput.length > 50) {
+                result.progress!.recentOutput.splice(0, result.progress!.recentOutput.length - 50);
+              }
+              // Append to full output
+              result.output += (result.output ? "\n" : "") + text;
+            }
+          }
+          scheduleUpdate();
+        }
+        
+        if (evt.type === "tool_result_end" && evt.message) {
+          // Also capture tool result text
+          const toolText = extractTextFromContent(evt.message.content);
+          if (toolText) {
+            const toolLines = toolText.split("\n").filter(l => l.trim()).slice(-10);
+            result.progress!.recentOutput.push(...toolLines);
+            if (result.progress!.recentOutput.length > 50) {
+              result.progress!.recentOutput.splice(0, result.progress!.recentOutput.length - 50);
+            }
+          }
+          scheduleUpdate();
+        }
+      } catch {
+        // Non-JSON lines are expected; only structured events are parsed
+      }
+    };
     
     // Collect stderr
     child.stderr?.on("data", (data: Buffer) => {
       stderr += data.toString();
     });
     
+    // Stream stdout (JSONL events)
+    child.stdout?.on("data", (data: Buffer) => {
+      buf += data.toString();
+      const lines = buf.split("\n");
+      buf = lines.pop() || "";
+      lines.forEach(processLine);
+      scheduleUpdate();
+    });
+    
     // Handle completion
     child.on("close", (code) => {
+      processClosed = true;
       clearTimeout(timeoutId);
-      const durationMs = Date.now() - startTime;
-      
-      // Parse JSON mode output if possible
-      let output = stdout;
-      let usage: SubagentUsage | undefined;
-      
-      try {
-        const lines = stdout.trim().split("\n").filter(Boolean);
-        const lastLine = lines[lines.length - 1];
-        if (lastLine) {
-          const parsed = JSON.parse(lastLine);
-          if (parsed.content) {
-            output = Array.isArray(parsed.content) 
-              ? parsed.content.map((c: any) => c.text || "").join("")
-              : String(parsed.content);
-          }
-          if (parsed.usage) {
-            usage = {
-              input: parsed.usage.input || 0,
-              output: parsed.usage.output || 0,
-              cacheRead: parsed.usage.cacheRead,
-              cacheWrite: parsed.usage.cacheWrite,
-              cost: parsed.usage.cost,
-              turns: parsed.usage.turns,
-            };
-          }
-        }
-      } catch {
-        // Not JSON, use raw stdout
+      if (pendingTimer) {
+        clearTimeout(pendingTimer);
+        pendingTimer = null;
       }
       
-      const success = code === 0 && !timedOut;
+      // Process remaining buffer
+      if (buf.trim()) processLine(buf);
+      
+      const durationMs = Date.now() - startTime;
+      result.durationMs = durationMs;
+      result.success = code === 0 && !timedOut && !result.error;
+      result.progress!.status = result.success ? "completed" : "failed";
       
       // Check for prompt too long error in stderr
-      let error = timedOut 
-        ? `Timeout after ${options.timeout || DEFAULTS.TIMEOUT}s` 
-        : stderr || undefined;
-      
-      if (stderr && stderr.includes("prompt is too long")) {
-        error = `Context too large for subagent. Pass smaller context or use file references. Original: ${stderr}`;
+      if (stderr) {
+        if (stderr.includes("prompt is too long")) {
+          result.error = `Context too large for subagent. Pass smaller context or use file references. Original: ${stderr}`;
+        } else if (code !== 0 && !result.error) {
+          result.error = stderr.trim();
+        }
       }
       
-      resolve({
-        id,
-        success,
-        output: output.trim(),
-        error,
-        usage,
-        durationMs,
-      });
+      if (timedOut) {
+        result.error = `Timeout after ${options.timeout || DEFAULTS.TIMEOUT}s`;
+      }
+      
+      // Clean up empty usage
+      if (result.usage && !result.usage.input && !result.usage.output && !result.usage.cost) {
+        delete result.usage;
+      }
+      // Clean up progress if not needed externally
+      if (!onUpdate) {
+        delete result.progress;
+      }
+      
+      resolve(result);
     });
     
     // Handle spawn errors
     child.on("error", (err) => {
+      processClosed = true;
       clearTimeout(timeoutId);
+      if (pendingTimer) {
+        clearTimeout(pendingTimer);
+        pendingTimer = null;
+      }
       resolve({
         id,
         success: false,
@@ -313,6 +458,37 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
     }
     child.stdin?.end();
   });
+}
+
+// Helper: Extract text from message content
+function extractTextFromContent(content: unknown): string {
+  if (typeof content === "string") return content;
+  if (Array.isArray(content)) {
+    return content.map((c: any) => {
+      if (typeof c === "string") return c;
+      if (c && typeof c === "object") {
+        if (c.text) return c.text;
+        if (c.type === "text") return c.text || "";
+      }
+      return "";
+    }).join("");
+  }
+  if (content && typeof content === "object") {
+    const c = content as Record<string, unknown>;
+    if (typeof c.text === "string") return c.text;
+  }
+  return "";
+}
+
+// Helper: Extract tool args preview
+function extractToolArgsPreview(args: Record<string, unknown>): string {
+  const keys = Object.keys(args).slice(0, 3);
+  const preview = keys.map(k => {
+    const v = args[k];
+    if (typeof v === "string") return `${k}: "${v.slice(0, 30)}${v.length > 30 ? "..." : ""}"`;
+    return `${k}: ${JSON.stringify(v).slice(0, 40)}`;
+  }).join(", ");
+  return keys.length < Object.keys(args).length ? `${preview}, ...` : preview;
 }
 
 // ============================================================================

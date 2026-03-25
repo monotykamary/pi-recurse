@@ -183,15 +183,16 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
             };
           }
           
-          onUpdate?.({ 
-            content: [{ type: "text", text: `Spawning subagent...` }],
-            details: {},
-          });
-          
           const result = await spawnSubagent({
             prompt: params.prompt,
             context: params.context,
             fork: params.fork,
+            onUpdate: onUpdate ? (data) => {
+              onUpdate({
+                content: [{ type: "text", text: data.output || "(running...)" }],
+                details: { progress: data.progress },
+              });
+            } : undefined,
           });
           results = [result];
           break;
@@ -212,24 +213,34 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
             details: {},
           });
           
+          // Track progress for each task
+          const taskProgress = new Map<string, { output: string; progress?: any }>();
+          
           // Programmatic parallel spawning — NO LLM involvement between spawns
           results = await runParallel(
             params.tasks,
             async (task) => {
-              onUpdate?.({
-                content: [{ type: "text", text: `Started: ${task.id}` }],
-                details: {},
-              });
+              taskProgress.set(task.id, { output: "" });
               
               const result = await spawnSubagent({
                 prompt: task.prompt,
                 context: task.context,
                 timeout: params.timeoutPerTask,
-              });
-              
-              onUpdate?.({
-                content: [{ type: "text", text: `Completed: ${task.id} (${result.success ? '✓' : '✗'})` }],
-                details: {},
+                onUpdate: onUpdate ? (data) => {
+                  taskProgress.set(task.id, data);
+                  // Build combined status
+                  const statusLines = Array.from(taskProgress.entries()).map(([id, data]) => {
+                    const icon = data.progress?.status === "completed" ? "✓" : 
+                                 data.progress?.status === "failed" ? "✗" : "○";
+                    const tool = data.progress?.currentTool ? ` [${data.progress.currentTool}]` : "";
+                    const preview = data.output?.slice(-100) || "(running...)";
+                    return `${icon} ${id}${tool}: ${preview.slice(0, 50)}${preview.length > 50 ? "..." : ""}`;
+                  });
+                  onUpdate({
+                    content: [{ type: "text", text: statusLines.join("\n") }],
+                    details: { taskProgress: Object.fromEntries(taskProgress) },
+                  });
+                } : undefined,
               });
               
               return result;
@@ -272,12 +283,18 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
             // Substitute {previous} placeholder
             const prompt = step.prompt.replace(/\{previous\}/g, previousOutput);
             
-            onUpdate?.({
-              content: [{ type: "text", text: `Chain step: ${step.id}` }],
-              details: {},
+            const result = await spawnSubagent({
+              prompt,
+              onUpdate: onUpdate ? (data) => {
+                onUpdate({
+                  content: [{ type: "text", text: `[${step.id}] ${data.output.slice(-200) || "(running...)"}` }],
+                  details: { 
+                    stepId: step.id,
+                    stepProgress: data.progress,
+                  },
+                });
+              } : undefined,
             });
-            
-            const result = await spawnSubagent({ prompt });
             results.push(result);
             
             if (!result.success) {
