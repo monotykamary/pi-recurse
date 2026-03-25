@@ -189,6 +189,19 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       
       args.push("--session", childSessionFile);
       env.RLM_SESSION_FILE = childSessionFile;
+    } else if (options.fork) {
+      // Fork requested but no session dir - we need a temp session file
+      const tmpDir = os.tmpdir();
+      childSessionFile = path.join(tmpDir, `rlm_fork_${traceId}_${id}.jsonl`);
+      const parentSessionFile = process.env.RLM_SESSION_FILE;
+      if (parentSessionFile && fs.existsSync(parentSessionFile)) {
+        fs.copyFileSync(parentSessionFile, childSessionFile);
+        args.push("--session", childSessionFile);
+        env.RLM_SESSION_FILE = childSessionFile;
+      } else {
+        // No parent session to fork - use no session
+        args.push("--no-session");
+      }
     } else {
       args.push("--no-session");
     }
@@ -199,11 +212,11 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       args.push("--system-prompt", systemPromptPath);
     }
     
-    // Model override
+    // Model override (use --models like pi-subagents, not --model)
     if (options.model) {
-      args.push("--model", options.model);
+      args.push("--models", options.model);
     } else if (env.RLM_CHILD_MODEL) {
-      args.push("--model", env.RLM_CHILD_MODEL);
+      args.push("--models", env.RLM_CHILD_MODEL);
     }
     
     // Provider override  
@@ -393,8 +406,11 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       scheduleUpdate();
     });
     
-    // Handle completion
-    child.on("close", (code) => {
+    // Handle completion - listen to both 'close' and 'exit' for robustness
+    let resolved = false;
+    const finalize = (code: number | null) => {
+      if (resolved) return;
+      resolved = true;
       processClosed = true;
       clearTimeout(timeoutId);
       if (pendingTimer) {
@@ -407,7 +423,7 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       
       const durationMs = Date.now() - startTime;
       result.durationMs = durationMs;
-      result.success = code === 0 && !timedOut && !result.error;
+      result.success = (code === 0) && !timedOut && !result.error;
       result.progress!.status = result.success ? "completed" : "failed";
       
       // Check for prompt too long error in stderr
@@ -433,10 +449,15 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       }
       
       resolve(result);
-    });
+    };
     
-    // Handle spawn errors
+    child.on("close", (code) => finalize(code));
+    child.on("exit", (code) => finalize(code));
+    
+    // Safety: if process errors before spawning
     child.on("error", (err) => {
+      if (resolved) return;
+      resolved = true;
       processClosed = true;
       clearTimeout(timeoutId);
       if (pendingTimer) {
@@ -446,7 +467,7 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       resolve({
         id,
         success: false,
-        output: "",
+        output: result.output,
         error: `Failed to spawn subagent: ${err.message}`,
         durationMs: Date.now() - startTime,
       });
