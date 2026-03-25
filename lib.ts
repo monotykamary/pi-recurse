@@ -531,6 +531,13 @@ You are running in NON-INTERACTIVE mode. You must:
     child.on("close", (code) => finalize(code));
     child.on("exit", (code) => finalize(code));
     
+    // Check if process already exited (happens with immediate failures)
+    if (child.exitCode !== null) {
+      finalize(child.exitCode);
+    } else if (child.killed) {
+      finalize(null);
+    }
+    
     // Safety: if process errors before spawning
     child.on("error", (err) => {
       if (resolved) return;
