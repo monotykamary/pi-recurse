@@ -18,6 +18,7 @@ import type {
   RecurseParams, 
   RecurseResult, 
   SubagentResult,
+  SubagentProgress,
   RecurseSingleParams,
   RecurseParallelParams,
   RecurseChainParams 
@@ -37,6 +38,7 @@ import {
   saveAccumulatedCost,
   DEFAULTS,
 } from "./lib.js";
+import { renderParallelStatus, renderSubagentStatus, formatDuration, formatTokens } from "./formatters.js";
 
 export default function piRecurseExtension(pi: ExtensionAPI) {
   // ============================================================================
@@ -183,13 +185,17 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
             };
           }
           
+          let currentData: { output: string; progress?: SubagentProgress } = { output: "", progress: { status: "running", recentOutput: [], recentTools: [], toolCount: 0, tokens: 0, durationMs: 0 } };
+          
           const result = await spawnSubagent({
             prompt: params.prompt,
             context: params.context,
             fork: params.fork,
             onUpdate: onUpdate ? (data) => {
+              currentData = data as { output: string; progress?: SubagentProgress };
+              const lines = renderSubagentStatus("subagent", currentData);
               onUpdate({
-                content: [{ type: "text", text: data.output || "(running...)" }],
+                content: [{ type: "text", text: lines.join("\n") }],
                 details: { progress: data.progress },
               });
             } : undefined,
@@ -214,30 +220,24 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
           });
           
           // Track progress for each task
-          const taskProgress = new Map<string, { output: string; progress?: any }>();
+          const taskProgress = new Map<string, { output: string; progress?: SubagentProgress }>();
           
           // Programmatic parallel spawning — NO LLM involvement between spawns
           results = await runParallel(
             params.tasks,
             async (task) => {
-              taskProgress.set(task.id, { output: "" });
+              taskProgress.set(task.id, { output: "", progress: { status: "running", recentOutput: [], recentTools: [], toolCount: 0, tokens: 0, durationMs: 0 } });
               
               const result = await spawnSubagent({
                 prompt: task.prompt,
                 context: task.context,
                 timeout: params.timeoutPerTask,
                 onUpdate: onUpdate ? (data) => {
-                  taskProgress.set(task.id, data);
-                  // Build combined status
-                  const statusLines = Array.from(taskProgress.entries()).map(([id, data]) => {
-                    const icon = data.progress?.status === "completed" ? "✓" : 
-                                 data.progress?.status === "failed" ? "✗" : "○";
-                    const tool = data.progress?.currentTool ? ` [${data.progress.currentTool}]` : "";
-                    const preview = data.output?.slice(-100) || "(running...)";
-                    return `${icon} ${id}${tool}: ${preview.slice(0, 50)}${preview.length > 50 ? "..." : ""}`;
-                  });
+                  taskProgress.set(task.id, data as { output: string; progress?: SubagentProgress });
+                  // Render full multi-line status like pi-subagents
+                  const statusText = renderParallelStatus(taskProgress);
                   onUpdate({
-                    content: [{ type: "text", text: statusLines.join("\n") }],
+                    content: [{ type: "text", text: statusText }],
                     details: { taskProgress: Object.fromEntries(taskProgress) },
                   });
                 } : undefined,
@@ -259,11 +259,6 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
             };
           }
           
-          onUpdate?.({ 
-            content: [{ type: "text", text: `Starting chain of ${params.chain.length} steps...` }],
-            details: {},
-          });
-          
           results = [];
           let previousOutput = "";
           
@@ -283,13 +278,21 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
             // Substitute {previous} placeholder
             const prompt = step.prompt.replace(/\{previous\}/g, previousOutput);
             
+            let stepData: { output: string; progress?: SubagentProgress } = { output: "", progress: { status: "running", recentOutput: [], recentTools: [], toolCount: 0, tokens: 0, durationMs: 0 } };
+            
             const result = await spawnSubagent({
               prompt,
               onUpdate: onUpdate ? (data) => {
+                stepData = data as { output: string; progress?: SubagentProgress };
+                const lines = renderSubagentStatus(step.id, stepData);
+                // Show step in context of chain
+                const header = `Step ${results.length + 1}/${params.chain!.length}: ${step.id}`;
                 onUpdate({
-                  content: [{ type: "text", text: `[${step.id}] ${data.output.slice(-200) || "(running...)"}` }],
+                  content: [{ type: "text", text: `${header}\n${lines.join("\n")}` }],
                   details: { 
                     stepId: step.id,
+                    stepIndex: results.length + 1,
+                    totalSteps: params.chain!.length,
                     stepProgress: data.progress,
                   },
                 });
