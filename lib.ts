@@ -312,7 +312,7 @@ VIOLATING THESE RULES WILL CAUSE YOUR OUTPUT TO BE REJECTED.
     // Track output stabilization to detect "hung but done" subagents (workaround for pi-mono #2584)
     let lastOutputTime = Date.now();
     let outputStabilizeTimer: ReturnType<typeof setTimeout> | null = null;
-    const OUTPUT_STABILIZE_MS = 10000; // 10 seconds of no output = assume done
+    const OUTPUT_STABILIZE_MS = 4000; // 4 seconds of no output = assume done
     
     const checkOutputStabilized = () => {
       if (processClosed) return;
