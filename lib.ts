@@ -541,11 +541,23 @@ VIOLATING THESE RULES WILL CAUSE YOUR OUTPUT TO BE REJECTED.
       if (wasOutputStabilizationKill && hasOutput) {
         // Count as success - the subagent produced output before we killed the hung process
         result.success = true;
+        result.stopReason = "output-stabilization";
         result.error = undefined; // Clear the error since we have valid output
         result.progress!.status = "completed";
       } else {
         result.success = (code === 0) && !timedOut && !result.error;
         result.progress!.status = result.success ? "completed" : "failed";
+        
+        // Set stop reason for tracking
+        if (timedOut) {
+          result.stopReason = "timeout";
+        } else if (result.error) {
+          result.stopReason = "error";
+        } else if (code !== null && code !== 0) {
+          result.stopReason = "killed";
+        } else {
+          result.stopReason = "completed";
+        }
       }
       
       // Check for prompt too long error in stderr

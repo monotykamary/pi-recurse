@@ -375,7 +375,8 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
       for (const r of results) {
         const icon = r.success ? "✓" : "✗";
         const duration = (r.durationMs / 1000).toFixed(1);
-        lines.push(`### ${icon} ${r.id} (${duration}s)`);
+        const stopReason = r.stopReason && r.stopReason !== "completed" ? ` [${r.stopReason}]` : "";
+        lines.push(`### ${icon} ${r.id} (${duration}s)${stopReason}`);
         if (r.error) {
           lines.push(`**Error:** ${r.error}`);
         }
