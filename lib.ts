@@ -123,6 +123,8 @@ export interface SpawnOptions {
 export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResult> {
   const startTime = Date.now();
   const id = Math.random().toString(36).substring(2, 8);
+  const currentDepth = getCurrentDepth();
+  const nextDepth = currentDepth + 1;
   
   // Check guardrails before spawning
   const depthCheck = checkDepthGuard();
@@ -147,9 +149,50 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
     };
   }
   
+  // Context size limit - prevent "prompt too long" errors
+  // Max ~200k tokens ≈ 4M chars at 20 chars/token
+  const MAX_CONTEXT_CHARS = 4_000_000;
+  let context = options.context || "";
+  if (context.length > MAX_CONTEXT_CHARS) {
+    context = context.slice(0, MAX_CONTEXT_CHARS) + 
+      `\n\n[Context truncated: ${context.length} chars > ${MAX_CONTEXT_CHARS} limit]`;
+  }
+  
   return new Promise((resolve) => {
     const env = buildChildEnvironment();
     const args = ["--mode", "json", "-p", options.prompt];
+    
+    // Session file handling (like ypi/rlm_query)
+    const sessionDir = process.env.RLM_SESSION_DIR;
+    const traceId = getTraceId();
+    let childSessionFile: string | undefined;
+    
+    if (sessionDir) {
+      // Ensure session directory exists
+      if (!fs.existsSync(sessionDir)) {
+        fs.mkdirSync(sessionDir, { recursive: true });
+      }
+      
+      // Create child session file path
+      childSessionFile = path.join(
+        sessionDir, 
+        `${traceId}_d${nextDepth}_${id}.jsonl`
+      );
+      
+      // If fork is enabled, copy parent session to child
+      if (options.fork) {
+        const parentSessionFile = process.env.RLM_SESSION_FILE;
+        if (parentSessionFile && fs.existsSync(parentSessionFile)) {
+          fs.copyFileSync(parentSessionFile, childSessionFile);
+        }
+      }
+      
+      args.push("--session", childSessionFile);
+      env.RLM_SESSION_FILE = childSessionFile;
+    } else {
+      // No session directory - use fresh session (no history)
+      args.push("--no-session");
+    }
     
     // Add system prompt if available
     const systemPromptPath = process.env.RLM_SYSTEM_PROMPT;
@@ -233,13 +276,20 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       
       const success = code === 0 && !timedOut;
       
+      // Check for prompt too long error in stderr
+      let error = timedOut 
+        ? `Timeout after ${options.timeout || DEFAULTS.TIMEOUT}s` 
+        : stderr || undefined;
+      
+      if (stderr && stderr.includes("prompt is too long")) {
+        error = `Context too large for subagent. Pass smaller context or use file references. Original: ${stderr}`;
+      }
+      
       resolve({
         id,
         success,
         output: output.trim(),
-        error: timedOut 
-          ? `Timeout after ${options.timeout || DEFAULTS.TIMEOUT}s` 
-          : stderr || undefined,
+        error,
         usage,
         durationMs,
       });
@@ -258,8 +308,8 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
     });
     
     // Send context via stdin if provided
-    if (options.context) {
-      child.stdin?.write(options.context);
+    if (context) {
+      child.stdin?.write(context);
     }
     child.stdin?.end();
   });
