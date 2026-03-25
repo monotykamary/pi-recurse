@@ -109,8 +109,8 @@ export interface SubagentResult {
   output: string;
   /** Any error message */
   error?: string;
-  /** Why the subagent stopped (for debugging) */
-  stopReason?: "completed" | "output-stabilization" | "timeout" | "error" | "killed";
+  /** Why the subagent stopped (for debugging) - aligns with pi terminology */
+  stopReason?: "completed" | "output-stabilization" | "timeout" | "error" | "stopped";
   /** Usage statistics (if available in JSON mode) */
   usage?: SubagentUsage;
   /** Time taken in milliseconds */

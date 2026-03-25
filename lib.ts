@@ -554,7 +554,7 @@ VIOLATING THESE RULES WILL CAUSE YOUR OUTPUT TO BE REJECTED.
         } else if (result.error) {
           result.stopReason = "error";
         } else if (code !== null && code !== 0) {
-          result.stopReason = "killed";
+          result.stopReason = "stopped"; // matches pi-messenger terminology
         } else {
           result.stopReason = "completed";
         }
