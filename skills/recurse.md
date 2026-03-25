@@ -1,3 +1,8 @@
+---
+name: recurse
+description: Use the `recurse` tool for programmatic subagent delegation. Supports single, parallel, and chain modes for large file processing, batch analysis, and sequential pipelines.
+---
+
 # Recurse Skill
 
 Use the `recurse` tool for programmatic subagent delegation.
