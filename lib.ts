@@ -212,6 +212,28 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       args.push("--system-prompt", systemPromptPath);
     }
     
+    // Add mandatory one-shot instruction to prevent follow-up questions
+    const oneShotInstruction = `
+## ONE-SHOT MODE - MANDATORY
+
+You are running in NON-INTERACTIVE mode. You must:
+1. Complete your task in ONE response
+2. NEVER ask the user for clarification or additional input
+3. If you need file contents, READ them yourself using the read tool
+4. If information is missing, make reasonable assumptions and proceed
+5. Do NOT output phrases like "Once you provide..." or "I'll analyze when..."
+6. Output your complete analysis immediately then STOP
+`;
+    
+    // Write one-shot instruction to temp file and append
+    const tmpDir = os.tmpdir();
+    const oneShotPath = path.join(tmpDir, `rlm_oneshot_${id}.md`);
+    fs.writeFileSync(oneShotPath, oneShotInstruction, { mode: 0o600 });
+    args.push("--append-system-prompt", oneShotPath);
+    
+    // Track for cleanup
+    const tempFiles: string[] = [oneShotPath];
+    
     // Model override (use --models like pi-subagents, not --model)
     if (options.model) {
       args.push("--models", options.model);
@@ -462,12 +484,14 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
         heartbeatTimer = null;
       }
       
-      // Clean up temp context file if created
-      if (contextFile) {
-        try {
-          fs.unlinkSync(contextFile);
-        } catch {
-          // Ignore cleanup errors
+      // Clean up temp files
+      for (const tmpFile of [contextFile, oneShotPath]) {
+        if (tmpFile) {
+          try {
+            fs.unlinkSync(tmpFile);
+          } catch {
+            // Ignore cleanup errors
+          }
         }
       }
       
@@ -521,12 +545,14 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
         clearInterval(heartbeatTimer);
         heartbeatTimer = null;
       }
-      // Clean up temp context file if created
-      if (contextFile) {
-        try {
-          fs.unlinkSync(contextFile);
-        } catch {
-          // Ignore cleanup errors
+      // Clean up temp files
+      for (const tmpFile of [contextFile, oneShotPath]) {
+        if (tmpFile) {
+          try {
+            fs.unlinkSync(tmpFile);
+          } catch {
+            // Ignore cleanup errors
+          }
         }
       }
       resolve({
