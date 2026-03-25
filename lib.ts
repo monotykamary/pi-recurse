@@ -206,17 +206,28 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       args.push("--no-session");
     }
     
+    // Track temp files for cleanup
+    const tmpDir = os.tmpdir();
+    const tempFiles: string[] = [];
+    
     // Add system prompt if available
     const systemPromptPath = process.env.RLM_SYSTEM_PROMPT;
     if (systemPromptPath && fs.existsSync(systemPromptPath)) {
       args.push("--system-prompt", systemPromptPath);
     }
     
-    // Add mandatory one-shot instruction to prevent follow-up questions
-    const oneShotInstruction = `
-## ONE-SHOT MODE - MANDATORY
+    // Add instruction based on depth (nextDepth already defined in outer scope)
+    const maxDepth = getMaxDepth();
+    const isAtMaxDepth = nextDepth >= maxDepth;
+    
+    if (isAtMaxDepth) {
+      // At max depth: one-shot mode, no further recursion possible
+      const oneShotInstruction = `
+## ONE-SHOT MODE - MANDATORY (MAX DEPTH)
 
-You are running in NON-INTERACTIVE mode with MAX 15 turns. You MUST:
+You are at recursion depth ${nextDepth} of ${maxDepth}. **NO FURTHER RECURSION IS POSSIBLE.**
+
+You MUST:
 1. Complete your task in ONE response cycle (analyze and output immediately)
 2. NEVER ask the user for clarification or additional input
 3. If you need file contents, READ them yourself using the read tool
@@ -227,15 +238,51 @@ You are running in NON-INTERACTIVE mode with MAX 15 turns. You MUST:
 
 VIOLATING THESE RULES WILL CAUSE YOUR OUTPUT TO BE REJECTED.
 `;
-    
-    // Write one-shot instruction to temp file and append
-    const tmpDir = os.tmpdir();
-    const oneShotPath = path.join(tmpDir, `rlm_oneshot_${id}.md`);
-    fs.writeFileSync(oneShotPath, oneShotInstruction, { mode: 0o600 });
-    args.push("--append-system-prompt", oneShotPath);
-    
-    // Track for cleanup
-    const tempFiles: string[] = [oneShotPath];
+      
+      const oneShotPath = path.join(tmpDir, `rlm_oneshot_${id}.md`);
+      fs.writeFileSync(oneShotPath, oneShotInstruction, { mode: 0o600 });
+      args.push("--append-system-prompt", oneShotPath);
+      tempFiles.push(oneShotPath);
+    } else {
+      // Below max depth: enable true recursion with guidance
+      const recursionGuidance = `
+## RECURSION ENABLED - DEPTH ${nextDepth}/${maxDepth}
+
+You are a subagent with access to the \\\`recurse\\\` tool. You MAY use recursion when necessary.
+
+### When to recurse (RECOMMENDED):
+- Task requires analyzing 10+ files independently → \\\`recurse({ mode: \\'parallel\\', tasks: [...] })\\\`
+- Task has sequential dependencies (summarize → analyze → plan) → \\\`recurse({ mode: \\'chain\\', chain: [...] })\\\`
+- File is too large for your context window → \\\`recurse({ mode: \\'single\\', prompt: \\'Process chunk...\\' })\\\`
+- Complex refactor across multiple files → Divide and conquer with parallel tasks
+
+### Rules for recursion:
+1. **Prefer direct answers for simple tasks** (< 5 files, < 200 lines each)
+2. **Check remaining depth before recursing** - you are at depth ${nextDepth}, max is ${maxDepth}
+3. **Return compact results** - parent aggregates, don't write essays
+4. **NEVER ask users for clarification** - read files yourself, make assumptions, recurse if stuck
+5. **One-shot mode**: Complete analysis and call \\\`bash({ command: \\'exit 0\\' })\\\` when done
+
+### Example recursive call:
+\\\`\\\`\\\`typescript
+recurse({
+  mode: "parallel",
+  tasks: files.map(f => ({
+    id: f,
+    prompt: \\\`Review \\\${f}: identify bugs\\\`
+  })),
+  concurrency: 4
+});
+\\\`\\\`\\\`
+
+You have ${maxDepth - nextDepth} recursion levels remaining. Use them wisely.
+`;
+      
+      const guidancePath = path.join(tmpDir, `rlm_recursion_${id}.md`);
+      fs.writeFileSync(guidancePath, recursionGuidance, { mode: 0o600 });
+      args.push("--append-system-prompt", guidancePath);
+      tempFiles.push(guidancePath);
+    }
     
     // Model override (use --models like pi-subagents, not --model)
     if (options.model) {
@@ -517,7 +564,7 @@ VIOLATING THESE RULES WILL CAUSE YOUR OUTPUT TO BE REJECTED.
       }
       
       // Clean up temp files
-      for (const tmpFile of [contextFile, oneShotPath]) {
+      for (const tmpFile of [contextFile, ...tempFiles]) {
         if (tmpFile) {
           try {
             fs.unlinkSync(tmpFile);
@@ -610,7 +657,7 @@ VIOLATING THESE RULES WILL CAUSE YOUR OUTPUT TO BE REJECTED.
         heartbeatTimer = null;
       }
       // Clean up temp files
-      for (const tmpFile of [contextFile, oneShotPath]) {
+      for (const tmpFile of [contextFile, ...tempFiles]) {
         if (tmpFile) {
           try {
             fs.unlinkSync(tmpFile);
