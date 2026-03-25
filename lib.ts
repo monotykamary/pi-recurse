@@ -232,6 +232,8 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
     const child = spawn(spawnCommand.command, spawnCommand.args, {
       env,
       stdio: ["pipe", "pipe", "pipe"],
+      // Increase buffer size to handle large outputs without pausing
+      maxBuffer: 10 * 1024 * 1024, // 10MB
     });
     
     let stderr = "";
@@ -259,6 +261,7 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
     let lastUpdateTime = 0;
     let updatePending = false;
     let pendingTimer: ReturnType<typeof setTimeout> | null = null;
+    let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
     const UPDATE_THROTTLE_MS = 50;
     
     const scheduleUpdate = () => {
@@ -294,6 +297,20 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
         }, UPDATE_THROTTLE_MS - elapsed);
       }
     };
+    
+    // Heartbeat: force update every second even if no data arrives
+    // This prevents UI from appearing stuck during large outputs
+    if (onUpdate) {
+      heartbeatTimer = setInterval(() => {
+        if (!processClosed && onUpdate) {
+          result.progress!.durationMs = Date.now() - startTime;
+          onUpdate({
+            output: result.output,
+            progress: result.progress!,
+          });
+        }
+      }, 1000);
+    }
     
     // Handle timeout
     const timeoutMs = (options.timeout || DEFAULTS.TIMEOUT) * 1000;
@@ -420,6 +437,10 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
         clearTimeout(pendingTimer);
         pendingTimer = null;
       }
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
+      }
       
       // Process remaining buffer
       if (buf.trim()) processLine(buf);
@@ -466,6 +487,10 @@ export async function spawnSubagent(options: SpawnOptions): Promise<SubagentResu
       if (pendingTimer) {
         clearTimeout(pendingTimer);
         pendingTimer = null;
+      }
+      if (heartbeatTimer) {
+        clearInterval(heartbeatTimer);
+        heartbeatTimer = null;
       }
       resolve({
         id,
