@@ -2,7 +2,7 @@
  * Type definitions for pi-recurse extension
  */
 
-import type { Static } from "@sinclair/typebox";
+import type { Static } from '@sinclair/typebox';
 
 // ============================================================================
 // Guardrail Configuration
@@ -59,10 +59,10 @@ export interface RecurseChainParams {
   }>;
 }
 
-export type RecurseParams = 
-  | ({ mode: "single" } & RecurseSingleParams)
-  | ({ mode: "parallel" } & RecurseParallelParams)
-  | ({ mode: "chain" } & RecurseChainParams);
+export type RecurseParams =
+  | ({ mode: 'single' } & RecurseSingleParams)
+  | ({ mode: 'parallel' } & RecurseParallelParams)
+  | ({ mode: 'chain' } & RecurseChainParams);
 
 // ============================================================================
 // Subagent Progress Types (for streaming updates)
@@ -70,7 +70,7 @@ export type RecurseParams =
 
 export interface SubagentProgress {
   /** Current status */
-  status: "running" | "completed" | "failed";
+  status: 'running' | 'completed' | 'failed';
   /** Current tool being executed (if any) */
   currentTool?: string;
   /** Arguments for current tool */
@@ -110,7 +110,7 @@ export interface SubagentResult {
   /** Any error message */
   error?: string;
   /** Why the subagent stopped (for debugging) - aligns with pi terminology */
-  stopReason?: "completed" | "output-stabilization" | "timeout" | "error" | "stopped";
+  stopReason?: 'completed' | 'output-stabilization' | 'timeout' | 'error' | 'stopped';
   /** Usage statistics (if available in JSON mode) */
   usage?: SubagentUsage;
   /** Time taken in milliseconds */
@@ -119,14 +119,16 @@ export interface SubagentResult {
   progress?: SubagentProgress;
   /** Nested recurse results if this subagent called recurse */
   children?: RecurseResult;
+  /** Model used for this subagent */
+  model?: string;
 }
 
 /** Tree node for recursive agent visualization */
 export interface RecurseTreeNode {
   id: string;
-  mode: "single" | "parallel" | "chain";
+  mode: 'single' | 'parallel' | 'chain';
   depth: number;
-  status: "running" | "completed" | "failed";
+  status: 'running' | 'completed' | 'failed';
   stats: {
     total: number;
     succeeded: number;
@@ -152,7 +154,7 @@ export interface RecurseResult {
   /** Current recursion depth */
   depth: number;
   /** Mode used for this recurse call */
-  mode?: "single" | "parallel" | "chain";
+  mode?: 'single' | 'parallel' | 'chain';
   /** Parent recurse result (for tree traversal) */
   parent?: RecurseResult;
   /** Unique ID for this recurse invocation */
