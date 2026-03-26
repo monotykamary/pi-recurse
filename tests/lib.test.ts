@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import * as fs from 'node:fs';
 import {
   getCurrentDepth,
   getMaxDepth,
@@ -128,15 +129,21 @@ describe('Guardrail utilities', () => {
     it('blocks when budget exhausted', () => {
       process.env.RLM_BUDGET = '0.01';
       // Mock spent amount by setting cost file via env
-      process.env.RLM_COST_FILE = '/tmp/test-cost-' + Date.now();
-      const fs = require('fs');
-      fs.writeFileSync(process.env.RLM_COST_FILE, '0.02', 'utf-8');
-      
-      const result = checkBudgetGuard();
-      expect(result.allowed).toBe(false);
-      
-      // Cleanup
-      fs.unlinkSync(process.env.RLM_COST_FILE);
+      const costFile = '/tmp/test-cost-' + Date.now();
+      process.env.RLM_COST_FILE = costFile;
+      fs.writeFileSync(costFile, '0.02', 'utf-8');
+
+      try {
+        const result = checkBudgetGuard();
+        expect(result.allowed).toBe(false);
+      } finally {
+        // Cleanup
+        try {
+          fs.unlinkSync(costFile);
+        } catch {
+          // Ignore cleanup errors
+        }
+      }
     });
   });
 
@@ -184,22 +191,22 @@ describe('Guardrail utilities', () => {
   describe('getRecursiveSystemPrompt', () => {
     it('includes depth information', () => {
       process.env.RLM_MAX_DEPTH = '5';
-      const basePrompt = "You are an AI assistant.";
+      const basePrompt = 'You are an AI assistant.';
       const result = getRecursiveSystemPrompt(basePrompt, 2);
-      
+
       expect(result).toContain('depth 2');
       expect(result).toContain('RLM_MAX_DEPTH=5');
       expect(result).toContain(basePrompt);
     });
 
     it('includes sub-agent guidance for depth > 0', () => {
-      const result = getRecursiveSystemPrompt("Base.", 1);
+      const result = getRecursiveSystemPrompt('Base.', 1);
       expect(result).toContain('sub-agents');
       expect(result).toContain('Prefer **direct answers**');
     });
 
     it('includes root-agent guidance for depth 0', () => {
-      const result = getRecursiveSystemPrompt("Base.", 0);
+      const result = getRecursiveSystemPrompt('Base.', 0);
       expect(result).toContain('root agents');
       expect(result).toContain('Decompose large tasks');
     });
