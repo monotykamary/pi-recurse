@@ -43,6 +43,7 @@
     "postinstall": "simple-git-hooks"
   },
   "devDependencies": {
+    "@vitest/coverage-v8": "^4.1.2",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "@types/node": "^25.3.3",
@@ -54,9 +55,9 @@
     "vitest": "^4.1.2"
   },
   "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "^0.x",
-    "@mariozechner/pi-tui": "^0.x",
-    "@sinclair/typebox": "^0.x"
+    "@mariozechner/pi-coding-agent": "^0.64.0",
+    "@mariozechner/pi-tui": "^0.64.0",
+    "@sinclair/typebox": "^0.34.49"
   },
   "pi": {
     "extensions": [
