@@ -33,6 +33,7 @@
     "CHANGELOG.md"
   ],
   "scripts": {
+    "lint:dead": "knip --no-gitignore",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -43,10 +44,11 @@
     "postinstall": "simple-git-hooks"
   },
   "devDependencies": {
-    "@vitest/coverage-v8": "^4.1.2",
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "^20.5.0",
     "@types/node": "^25.3.3",
+    "@vitest/coverage-v8": "^4.1.2",
+    "knip": "^6.2.0",
     "lint-staged": "^16.4.0",
     "prettier": "^3.8.1",
     "simple-git-hooks": "^2.13.1",

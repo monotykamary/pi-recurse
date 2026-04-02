@@ -1,0 +1,15 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["index.ts", "lib.ts", "types.ts", "names.ts", "formatters.ts"],
+  "project": ["*.ts", "tests/**/*.ts"],
+  "ignore": ["dist/**", "coverage/**"],
+  "ignoreDependencies": [
+    "@commitlint/cli",
+    "@commitlint/config-conventional",
+    "@vitest/coverage-v8",
+    "simple-git-hooks",
+    "lint-staged",
+    "prettier"
+  ],
+  "ignoreExportsUsedInFile": true
+}
