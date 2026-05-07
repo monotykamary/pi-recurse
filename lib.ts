@@ -15,10 +15,6 @@ import type {
   SubagentProgress,
 } from './types.js';
 
-// ============================================================================
-// Default Configuration
-// ============================================================================
-
 export const DEFAULTS = {
   MAX_DEPTH: 3,
   MAX_CALLS: 100,
@@ -26,10 +22,6 @@ export const DEFAULTS = {
   CONCURRENCY: 4,
   DISABLE_TOOL_AT_DEPTH: 3,
 } as const;
-
-// ============================================================================
-// Guardrail Management
-// ============================================================================
 
 export function getCurrentDepth(): number {
   return parseInt(process.env.RLM_DEPTH || '0', 10);
@@ -107,10 +99,6 @@ export function buildChildEnvironment(): NodeJS.ProcessEnv {
     RLM_START_TIME: String(getStartTime()),
   };
 }
-
-// ============================================================================
-// Subagent Spawning
-// ============================================================================
 
 export interface SpawnOptions {
   prompt: string;
@@ -728,10 +716,6 @@ function extractToolArgsPreview(args: Record<string, unknown>): string {
   return keys.length < Object.keys(args).length ? `${preview}, ...` : preview;
 }
 
-// ============================================================================
-// Parallel Execution
-// ============================================================================
-
 export async function runParallel<T, R>(
   items: T[],
   fn: (item: T) => Promise<R>,
@@ -756,10 +740,6 @@ export async function runParallel<T, R>(
   await Promise.all(executing);
   return results;
 }
-
-// ============================================================================
-// System Prompt Helpers
-// ============================================================================
 
 export function getRecursiveSystemPrompt(basePrompt: string, depth: number): string {
   const isDeep = depth > 0;
@@ -795,10 +775,6 @@ Environment:
 
   return basePrompt + recursionSection;
 }
-
-// ============================================================================
-// Cost Tracking
-// ============================================================================
 
 export function loadAccumulatedCost(): number {
   const costFile = process.env.RLM_COST_FILE;
@@ -838,10 +814,6 @@ export function checkBudgetGuard(budget?: number): { allowed: boolean; remaining
     remaining,
   };
 }
-
-// ============================================================================
-// Pi Spawn Helper
-// ============================================================================
 
 interface PiSpawnCommand {
   command: string;

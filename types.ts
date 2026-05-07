@@ -4,10 +4,6 @@
 
 import type { Static } from '@sinclair/typebox';
 
-// ============================================================================
-// Guardrail Configuration
-// ============================================================================
-
 export interface GuardrailConfig {
   /** Maximum recursion depth (0 = root) */
   maxDepth: number;
@@ -20,10 +16,6 @@ export interface GuardrailConfig {
   /** Disable recurse tool when depth exceeds this threshold */
   disableToolAtDepth?: number;
 }
-
-// ============================================================================
-// Recurse Tool Parameters
-// ============================================================================
 
 export interface RecurseSingleParams {
   /** The task/prompt to send to the subagent */
@@ -64,10 +56,6 @@ export type RecurseParams =
   | ({ mode: 'parallel' } & RecurseParallelParams)
   | ({ mode: 'chain' } & RecurseChainParams);
 
-// ============================================================================
-// Subagent Progress Types (for streaming updates)
-// ============================================================================
-
 export interface SubagentProgress {
   /** Current status */
   status: 'running' | 'completed' | 'failed';
@@ -86,10 +74,6 @@ export interface SubagentProgress {
   /** Duration in milliseconds */
   durationMs: number;
 }
-
-// ============================================================================
-// Subagent Result Types
-// ============================================================================
 
 export interface SubagentUsage {
   input: number;
@@ -161,10 +145,6 @@ export interface RecurseResult {
   invocationId?: string;
 }
 
-// ============================================================================
-// Extension State
-// ============================================================================
-
 export interface RecurseState {
   /** Current depth (0 = root agent) */
   depth: number;
@@ -177,10 +157,6 @@ export interface RecurseState {
   /** Accumulated cost tracking */
   accumulatedCost: number;
 }
-
-// ============================================================================
-// Environment Variable Types
-// ============================================================================
 
 export interface RecurseEnvironment {
   RLM_DEPTH: string;
