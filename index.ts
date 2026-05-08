@@ -11,9 +11,9 @@
  *   recurse({ mode: "chain", chain: [...] })
  */
 
-import type { ExtensionAPI, ExtensionContext } from '@mariozechner/pi-coding-agent';
+import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { Type } from '@sinclair/typebox';
-import { Text } from '@mariozechner/pi-tui';
+import { Text } from '@earendil-works/pi-tui';
 import type {
   RecurseParams,
   RecurseResult,

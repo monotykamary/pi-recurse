@@ -830,7 +830,7 @@ function getPiSpawnCommand(args: string[]): PiSpawnCommand {
   if (process.platform === 'win32') {
     try {
       // Try to find pi CLI via require
-      const piPkg = require.resolve('@mariozechner/pi-coding-agent/package.json');
+      const piPkg = require.resolve('@earendil-works/pi-coding-agent/package.json');
       const piRoot = path.dirname(piPkg);
       const pkg = JSON.parse(fs.readFileSync(piPkg, 'utf-8'));
       const binField = pkg.bin;
