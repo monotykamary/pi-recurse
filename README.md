@@ -1,8 +1,12 @@
-# Pi Recurse Extension
+<div align="center">
 
-> **Programmatic recursive subagent spawning for Pi**
+# 🔁 pi-recurse
+
+**Programmatic recursive subagent spawning for Pi**
 
 A proper Pi extension that brings the recursive capabilities of `ypi` into the Pi ecosystem. The key innovation: **LLM makes ONE tool call, extension code handles parallel spawning and result aggregation** — no autoregressive bash loops required.
+
+</div>
 
 ---
 
@@ -55,25 +59,25 @@ The extension adds a `recurse` tool to Pi, enabling three execution modes:
 
 ```typescript
 recurse({
-  mode: "single",
-  prompt: "Analyze the error handling in src/auth.ts",
-  context: fileContent  // optional context to pipe
-})
+  mode: 'single',
+  prompt: 'Analyze the error handling in src/auth.ts',
+  context: fileContent, // optional context to pipe
+});
 ```
 
 ### Parallel Mode — Batch processing
 
 ```typescript
 recurse({
-  mode: "parallel",
+  mode: 'parallel',
   tasks: [
-    { id: "auth", prompt: "Review auth module" },
-    { id: "db", prompt: "Review database layer" },
-    { id: "api", prompt: "Review API routes" },
+    { id: 'auth', prompt: 'Review auth module' },
+    { id: 'db', prompt: 'Review database layer' },
+    { id: 'api', prompt: 'Review API routes' },
   ],
   concurrency: 3,
-  timeoutPerTask: 120
-})
+  timeoutPerTask: 120,
+});
 ```
 
 **Key advantage:** All 3 subagents spawn from a **single LLM tool call**. The extension handles `Promise.all()` style concurrency internally — no autoregressive steps between spawns.
@@ -82,13 +86,13 @@ recurse({
 
 ```typescript
 recurse({
-  mode: "chain",
+  mode: 'chain',
   chain: [
-    { id: "read", prompt: "Read README.md and summarize" },
-    { id: "analyze", prompt: "Given this summary: {previous} — identify risks" },
-    { id: "plan", prompt: "Given these risks: {previous} — suggest mitigations" },
-  ]
-})
+    { id: 'read', prompt: 'Read README.md and summarize' },
+    { id: 'analyze', prompt: 'Given this summary: {previous} — identify risks' },
+    { id: 'plan', prompt: 'Given these risks: {previous} — suggest mitigations' },
+  ],
+});
 ```
 
 ---
@@ -97,15 +101,15 @@ recurse({
 
 Environment variables control recursion limits across the entire call tree:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `RLM_MAX_DEPTH` | 3 | Maximum recursion depth (0 = root) |
-| `RLM_MAX_CALLS` | 100 | Maximum total recurse invocations |
-| `RLM_TIMEOUT` | 600 | Wall-clock seconds for entire tree |
-| `RLM_BUDGET` | — | Max dollar spend (e.g., `0.50`) |
-| `RLM_CHILD_MODEL` | — | Model override for depth > 0 |
-| `RLM_DISABLE_TOOL_AT` | 3 | Disable recurse tool at this depth |
-| `RLM_TRACE_ID` | auto | Links all sessions in recursive tree |
+| Variable              | Default | Description                          |
+| --------------------- | ------- | ------------------------------------ |
+| `RLM_MAX_DEPTH`       | 3       | Maximum recursion depth (0 = root)   |
+| `RLM_MAX_CALLS`       | 100     | Maximum total recurse invocations    |
+| `RLM_TIMEOUT`         | 600     | Wall-clock seconds for entire tree   |
+| `RLM_BUDGET`          | —       | Max dollar spend (e.g., `0.50`)      |
+| `RLM_CHILD_MODEL`     | —       | Model override for depth > 0         |
+| `RLM_DISABLE_TOOL_AT` | 3       | Disable recurse tool at this depth   |
+| `RLM_TRACE_ID`        | auto    | Links all sessions in recursive tree |
 
 At deep depths (≥ `RLM_DISABLE_TOOL_AT`), the recurse tool automatically disables itself and guides agents to work directly instead of delegating.
 
@@ -153,16 +157,16 @@ LLM receives aggregated data, continues reasoning
 
 ## Comparison: ypi vs pi-recurse
 
-| Feature | ypi (Wrapper) | pi-recurse (Extension) |
-|---------|---------------|------------------------|
-| Entry point | `ypi "prompt"` | `pi` (extension auto-loaded) |
-| Parallel spawning | LLM writes bash loop | **Code executes `Promise.all()`** |
-| Result aggregation | Bash string manipulation | TypeScript structured objects |
-| Hot reload | Restart ypi process | `/reload` in pi |
-| Distribution | npm global bin | `pi install` / git URL |
-| Extension integration | Manual env/PATH setup | Native auto-discovery |
-| Tool disabling | Manual depth checks | Automatic at configured depth |
-| Status visibility | Footer via ypi.ts | Native Pi status bar |
+| Feature               | ypi (Wrapper)            | pi-recurse (Extension)            |
+| --------------------- | ------------------------ | --------------------------------- |
+| Entry point           | `ypi "prompt"`           | `pi` (extension auto-loaded)      |
+| Parallel spawning     | LLM writes bash loop     | **Code executes `Promise.all()`** |
+| Result aggregation    | Bash string manipulation | TypeScript structured objects     |
+| Hot reload            | Restart ypi process      | `/reload` in pi                   |
+| Distribution          | npm global bin           | `pi install` / git URL            |
+| Extension integration | Manual env/PATH setup    | Native auto-discovery             |
+| Tool disabling        | Manual depth checks      | Automatic at configured depth     |
+| Status visibility     | Footer via ypi.ts        | Native Pi status bar              |
 
 ---
 
@@ -215,8 +219,6 @@ recurse({mode: "single", prompt: "What is 2+2?"})
 - **[ypi](https://github.com/rawwerks/ypi)** — The original bash wrapper that inspired this extension
 - **[pi-messenger](https://github.com/monotykamary/pi-messenger-swarm)** — Multi-agent coordination for Pi (another extension)
 - **[pi](https://github.com/badlogic/pi-mono)** — The Pi coding agent itself
-
----
 
 ## License
 
