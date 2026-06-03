@@ -2,15 +2,16 @@
 
 # 🔁 pi-recurse
 
-**Programmatic recursive subagent spawning for Pi**
+**Programmatic recursive subagent spawning for [pi](https://github.com/earendil-works/pi-coding-agent)**
 
-A proper Pi extension that brings the recursive capabilities of `ypi` into the Pi ecosystem. The key innovation: **LLM makes ONE tool call, extension code handles parallel spawning and result aggregation** — no autoregressive bash loops required.
+_LLM makes ONE tool call, extension code handles parallel spawning and result aggregation._
+
+[![pi extension](https://img.shields.io/badge/pi-extension-blueviolet)](https://github.com/earendil-works/pi-coding-agent)
+[![license](https://img.shields.io/badge/license-MIT-blue)](./LICENSE)
 
 </div>
 
 ---
-
-## Origins & Acknowledgments
 
 This project is the spiritual successor to **[ypi](https://github.com/rawwerks/ypi)** by [@rawwerks](https://github.com/rawwerks), originally created as a bash wrapper around Pi that enabled recursive LLM calls with guardrails.
 
