@@ -28,16 +28,10 @@ Thank you to the original `ypi` for pioneering the concept of depth-limited recu
 
 ## Installation
 
-### Via Git URL (Recommended for now)
+### Via npm (Recommended)
 
 ```bash
-pi install https://github.com/monotykamary/pi-recurse
-```
-
-### Via npm (when published)
-
-```bash
-pi install pi-recurse
+pi install npm:pi-recurse
 ```
 
 ### Local Development
