@@ -12,6 +12,7 @@
       "devDependencies": {
         "@commitlint/cli": "21.0.1",
         "@commitlint/config-conventional": "21.0.1",
+        "@earendil-works/pi-tui": "0.79.4",
         "@types/node": "25.9.1",
         "@vitest/coverage-v8": "4.1.7",
         "knip": "6.14.1",
@@ -24,7 +25,6 @@
       },
       "peerDependencies": {
         "@earendil-works/pi-coding-agent": ">=0.74.0",
-        "@earendil-works/pi-tui": ">=0.74.0",
         "@sinclair/typebox": "0.34.49"
       }
     },
@@ -1202,6 +1202,23 @@
         "@mariozechner/clipboard": "^0.3.5"
       }
     },
+    "node_modules/@earendil-works/pi-coding-agent/node_modules/@earendil-works/pi-tui": {
+      "version": "0.74.2",
+      "resolved": "https://registry.npmjs.org/@earendil-works/pi-tui/-/pi-tui-0.74.2.tgz",
+      "integrity": "sha512-valQPz74qbdydRqII6t9rJ46YANMOOJeDhKm25a1ZrWvWwdjAaAEu6s3ur/LWz84Wkkwcbub2ZkVjzCZi8gFGA==",
+      "license": "MIT",
+      "peer": true,
+      "dependencies": {
+        "get-east-asian-width": "^1.3.0",
+        "marked": "^15.0.12"
+      },
+      "engines": {
+        "node": ">=20.0.0"
+      },
+      "optionalDependencies": {
+        "koffi": "^2.9.0"
+      }
+    },
     "node_modules/@earendil-works/pi-coding-agent/node_modules/jiti": {
       "version": "2.7.0",
       "license": "MIT",
@@ -1211,21 +1228,17 @@
       }
     },
     "node_modules/@earendil-works/pi-tui": {
-      "version": "0.74.0",
+      "version": "0.79.4",
+      "resolved": "https://registry.npmjs.org/@earendil-works/pi-tui/-/pi-tui-0.79.4.tgz",
+      "integrity": "sha512-/ZhfFiHSBMH7AbDrBQIN+UWlJnl9tSEpLYICRGGMzmNfyCqX+30NYacIhyOEaD8R5rS6wJZysAOPU0yNwigbXw==",
+      "dev": true,
       "license": "MIT",
-      "peer": true,
       "dependencies": {
-        "@types/mime-types": "^2.1.4",
-        "chalk": "^5.5.0",
-        "get-east-asian-width": "^1.3.0",
-        "marked": "^15.0.12",
-        "mime-types": "^3.0.1"
+        "get-east-asian-width": "1.6.0",
+        "marked": "15.0.12"
       },
       "engines": {
-        "node": ">=20.0.0"
-      },
-      "optionalDependencies": {
-        "koffi": "^2.9.0"
+        "node": ">=22.19.0"
       }
     },
     "node_modules/@emnapi/core": {
@@ -2890,11 +2903,6 @@
       "version": "1.0.8",
       "dev": true,
       "license": "MIT"
-    },
-    "node_modules/@types/mime-types": {
-      "version": "2.1.4",
-      "license": "MIT",
-      "peer": true
     },
     "node_modules/@types/minimist": {
       "version": "1.2.5",
@@ -5090,7 +5098,9 @@
       }
     },
     "node_modules/get-east-asian-width": {
-      "version": "1.5.0",
+      "version": "1.6.0",
+      "resolved": "https://registry.npmjs.org/get-east-asian-width/-/get-east-asian-width-1.6.0.tgz",
+      "integrity": "sha512-QRbvDIbx6YklUe6RxeTeleMR0yv3cYH6PsPZHcnVn7xv7zO1BHN8r0XETu8n6Ye3Q+ahtSarc3WgtNWmehIBfA==",
       "license": "MIT",
       "engines": {
         "node": ">=18"
@@ -6053,7 +6063,9 @@
       }
     },
     "node_modules/koffi": {
-      "version": "2.16.1",
+      "version": "2.16.2",
+      "resolved": "https://registry.npmjs.org/koffi/-/koffi-2.16.2.tgz",
+      "integrity": "sha512-owU0MRwv6xkrVqCd+33uw6BaYppkTRXbO/rVdJNI2dvZG0gzyRhYwW25eWtc5pauwK8TGh3AbkFONSezdykfSA==",
       "hasInstallScript": true,
       "license": "MIT",
       "optional": true,
@@ -6529,7 +6541,6 @@
     "node_modules/marked": {
       "version": "15.0.12",
       "license": "MIT",
-      "peer": true,
       "bin": {
         "marked": "bin/marked.js"
       },
@@ -6548,29 +6559,6 @@
       },
       "funding": {
         "url": "https://github.com/sponsors/sindresorhus"
-      }
-    },
-    "node_modules/mime-db": {
-      "version": "1.54.0",
-      "license": "MIT",
-      "peer": true,
-      "engines": {
-        "node": ">= 0.6"
-      }
-    },
-    "node_modules/mime-types": {
-      "version": "3.0.2",
-      "license": "MIT",
-      "peer": true,
-      "dependencies": {
-        "mime-db": "^1.54.0"
-      },
-      "engines": {
-        "node": ">=18"
-      },
-      "funding": {
-        "type": "opencollective",
-        "url": "https://opencollective.com/express"
       }
     },
     "node_modules/mimic-function": {
