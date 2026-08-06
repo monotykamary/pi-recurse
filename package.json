@@ -29,6 +29,7 @@
     "*.d.ts",
     "lib/**",
     "tests/**",
+    "skills/**",
     "README.md",
     "CHANGELOG.md"
   ],
