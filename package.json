@@ -56,7 +56,7 @@
     "standard-version": "9.5.0",
     "typescript": "6.0.3",
     "vitest": "4.1.7",
-    "@earendil-works/pi-tui": "0.84.0"
+    "@earendil-works/pi-tui": "0.84.1"
   },
   "peerDependencies": {
     "@earendil-works/pi-coding-agent": ">=0.74.0",
