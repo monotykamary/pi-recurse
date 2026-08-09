@@ -478,7 +478,7 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
       const icon = stats.failed === 0 ? theme.fg('success', '✓') : theme.fg('warning', '⚠');
       const hasChildren = data.results.some((r) => r.children);
 
-      let text = `${icon} ${stats.succeeded}/${stats.total} at depth ${depth}${mode ? ` · ${mode}` : ''}`;
+      let text = `${icon} ${theme.fg('muted', `${stats.succeeded}/${stats.total} at depth ${depth}${mode ? ` · ${mode}` : ''}`)}`;
 
       if (stats.totalCost && stats.totalCost > 0) {
         text += theme.fg('dim', ` · $${stats.totalCost.toFixed(4)}`);
@@ -493,13 +493,13 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
           // Render tree view
           const tree = buildRecurseTree(data, mode);
           const treeLines = renderRecurseTree(tree, 100);
-          text += '\n' + treeLines.join('\n');
+          text += '\n' + treeLines.map((line) => theme.fg('muted', line)).join('\n');
         } else {
           // Simple flat view
           text += '\n';
           for (const r of data.results) {
             const status = r.success ? theme.fg('success', '✓') : theme.fg('error', '✗');
-            text += `  ${status} ${r.id}`;
+            text += `  ${status} ${theme.fg('muted', r.id)}`;
             if (r.children) {
               text += theme.fg('accent', ` → ${r.children.stats.total} children`);
             }
