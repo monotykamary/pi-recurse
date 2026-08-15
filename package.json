@@ -1,6 +1,6 @@
 {
   "name": "pi-recurse",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Recursive agent extension for Pi — spawn subagents programmatically with depth guardrails",
   "type": "module",
   "author": "Tom X Nguyen",
