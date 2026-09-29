@@ -2,7 +2,7 @@
  * Type definitions for pi-recurse extension
  */
 
-import type { Static } from '@sinclair/typebox';
+import type { Static } from 'typebox';
 
 export interface GuardrailConfig {
   /** Maximum recursion depth (0 = root) */
