@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.14
+
+- Pin development SDKs to Pi 1.0.0 while retaining host-owned wildcard peers.
+- Exercise actual SDK and bundled host lifecycle, identity, native nested validation/loadouts, reload and shutdown offline.
+- Preserve recursion context in structured prompt sections and verify actual host renderers at narrow widths.
+
 ## 0.1.13
 
 - Validate against Pi 0.99.0, including an offline real-host package-loading probe.

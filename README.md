@@ -11,6 +11,10 @@ _LLM makes ONE tool call, extension code handles parallel spawning and result ag
 
 </div>
 
+## Pi 1.0 compatibility (0.1.14)
+
+Development SDKs are pinned to **1.0.0**; host-provided dependencies remain wildcard peers. Run `bun run test:pi` for offline real-host registrations, prompt/tool loadouts, nested calls, reload and shutdown. Set `PI1_HOST_PACKAGE` to an installed Pi package directory and `PI1_HOST_ENTRY=bundle` to check its bundled runtime.
+
 ---
 
 This project is the spiritual successor to **[ypi](https://github.com/rawwerks/ypi)** by [@rawwerks](https://github.com/rawwerks), originally created as a bash wrapper around Pi that enabled recursive LLM calls with guardrails.

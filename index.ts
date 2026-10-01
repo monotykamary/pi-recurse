@@ -61,6 +61,10 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
   const toolEnabled = currentDepth < disableToolAt;
 
   pi.on('before_agent_start', async (event) => {
+    if (event.systemPromptOptions) {
+      event.systemPromptOptions.sections.recursion = getRecursiveSystemPrompt('', currentDepth);
+      return;
+    }
     const modifiedPrompt = getRecursiveSystemPrompt(event.systemPrompt, currentDepth);
     return { systemPrompt: modifiedPrompt };
   });
