@@ -100,15 +100,18 @@ recurse({
 
 Environment variables control recursion limits across the entire call tree:
 
-| Variable              | Default | Description                          |
-| --------------------- | ------- | ------------------------------------ |
-| `RLM_MAX_DEPTH`       | 3       | Maximum recursion depth (0 = root)   |
-| `RLM_MAX_CALLS`       | 100     | Maximum total recurse invocations    |
-| `RLM_TIMEOUT`         | 600     | Wall-clock seconds for entire tree   |
-| `RLM_BUDGET`          | —       | Max dollar spend (e.g., `0.50`)      |
-| `RLM_CHILD_MODEL`     | —       | Model override for depth > 0         |
-| `RLM_DISABLE_TOOL_AT` | 3       | Disable recurse tool at this depth   |
-| `RLM_TRACE_ID`        | auto    | Links all sessions in recursive tree |
+| Variable              | Default | Description                                                 |
+| --------------------- | ------- | ----------------------------------------------------------- |
+| `RLM_MAX_DEPTH`       | 3       | Maximum recursion depth (0 = root)                          |
+| `RLM_MAX_CALLS`       | 100     | Maximum total recurse invocations                           |
+| `RLM_TIMEOUT`         | 600     | Wall-clock seconds for entire tree                          |
+| `RLM_BUDGET`          | —       | Stop new calls at this recorded dollar spend (e.g., `0.50`) |
+| `RLM_CHILD_MODEL`     | —       | Model override for depth > 0                                |
+| `RLM_DISABLE_TOOL_AT` | 3       | Disable recurse tool at this depth                          |
+| `RLM_TRACE_ID`        | auto    | Links all sessions in recursive tree                        |
+| `RLM_COST_FILE`       | —       | Shared file for completed usage, in dollars                 |
+
+The budget check uses the cost recorded so far; it does not reserve funds for running calls. Set `RLM_COST_FILE` to the same file across the call tree to share the running total. Malformed files are not overwritten, and a failed cost update is reported in the tool result. If a crashed writer leaves a `<cost-file>.lock` directory, stop all writers before removing it.
 
 At deep depths (≥ `RLM_DISABLE_TOOL_AT`), the recurse tool automatically disables itself and guides agents to work directly instead of delegating.
 

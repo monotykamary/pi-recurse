@@ -35,7 +35,7 @@ import {
   runParallel,
   getRecursiveSystemPrompt,
   loadAccumulatedCost,
-  saveAccumulatedCost,
+  addAccumulatedCost,
   DEFAULTS,
 } from './lib.js';
 import {
@@ -400,10 +400,14 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
       const succeeded = results.filter((r) => r.success).length;
       const totalCost = results.reduce((sum, r) => sum + (r.usage?.cost || 0), 0);
 
-      // Update accumulated cost
+      // Record completed usage; the earlier budget check does not reserve spend.
+      let costWarning: string | undefined;
       if (totalCost > 0) {
-        const currentCost = loadAccumulatedCost();
-        saveAccumulatedCost(currentCost + totalCost);
+        try {
+          addAccumulatedCost(totalCost);
+        } catch (error) {
+          costWarning = `Could not record $${totalCost.toFixed(6)} of recurse cost: ${error instanceof Error ? error.message : String(error)}`;
+        }
       }
 
       const totalDuration = Date.now() - startTime;
@@ -430,6 +434,8 @@ export default function piRecurseExtension(pi: ExtensionAPI) {
         `**Stats:** ${result.stats.succeeded}/${result.stats.total} succeeded · ${(result.stats.totalDurationMs / 1000).toFixed(1)}s${totalCost > 0 ? ` · $${totalCost.toFixed(4)}` : ''}`,
         '',
       ];
+
+      if (costWarning) lines.push(`**Warning:** ${costWarning}`, '');
 
       for (const r of results) {
         const icon = r.success ? '✓' : '✗';

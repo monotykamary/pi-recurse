@@ -6,6 +6,7 @@ import { spawn } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { loadAccumulatedCost } from './lib/cost-file.js';
 import type {
   GuardrailConfig,
   RecurseEnvironment,
@@ -14,6 +15,8 @@ import type {
   SubagentUsage,
   SubagentProgress,
 } from './types.js';
+
+export { addAccumulatedCost, loadAccumulatedCost } from './lib/cost-file.js';
 
 export const DEFAULTS = {
   MAX_DEPTH: 3,
@@ -774,30 +777,6 @@ Environment:
 `;
 
   return basePrompt + recursionSection;
-}
-
-export function loadAccumulatedCost(): number {
-  const costFile = process.env.RLM_COST_FILE;
-  if (!costFile || !fs.existsSync(costFile)) {
-    return 0;
-  }
-  try {
-    const content = fs.readFileSync(costFile, 'utf-8');
-    return parseFloat(content) || 0;
-  } catch {
-    return 0;
-  }
-}
-
-export function saveAccumulatedCost(cost: number): void {
-  const costFile = process.env.RLM_COST_FILE;
-  if (costFile) {
-    try {
-      fs.writeFileSync(costFile, cost.toFixed(6), 'utf-8');
-    } catch {
-      // Ignore write errors
-    }
-  }
 }
 
 export function checkBudgetGuard(budget?: number): { allowed: boolean; remaining: number } {
